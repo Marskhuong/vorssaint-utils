@@ -62,6 +62,7 @@ enum CommandBarEmojiContract {
         var queryWhenRun = ""
         var selectionWhenRun = ""
         var selectedText = ""
+        var farewell = NotchMascotMood.idle
         func hide() { isVisible = false; query = ""; savedQuery = "" }
     }
 

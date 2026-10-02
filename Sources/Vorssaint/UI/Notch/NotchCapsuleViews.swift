@@ -157,17 +157,41 @@ private struct NotchCapsuleTrackArtwork: View {
 }
 
 /// The closed capsule at rest: bare, or with the charge or the AI allowance
-/// the person chose, in its middle.
+/// the person chose, in its middle. The companion rests in its middle when
+/// nothing else is there, and walks through on its visits.
 struct NotchCapsuleRestingView: View {
     @ObservedObject var service: NotchService
     @ObservedObject private var music = NotchMusicService.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let size: CGSize
     /// Another display's capsule, when the island shows on every display.
     var displayGeometry: NotchGeometry? = nil
 
     private var geometry: NotchGeometry { displayGeometry ?? service.geometry }
 
+    /// A visit walks over what the capsule rests with, which steps aside meanwhile.
+    private var contentStepsAside: Bool { service.mascotVisit != nil && !service.mascotAtRest }
+
     var body: some View {
+        resting
+            .opacity(contentStepsAside ? 0 : 1)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: contentStepsAside)
+            .overlay {
+                if service.mascotShows(on: geometry) {
+                    NotchMascotTrackView(look: NotchMascotSupport.look(),
+                                         track: NotchMascotSupport.track(stripWidth: size.width,
+                                                                         stripHeight: geometry.stripHeight,
+                                                                         wing: 0, cameraWidth: 0, floats: true,
+                                                                         bodyHeight: geometry.stripBodyHeight),
+                                         rests: service.mascotAtRest, visit: service.mascotVisit)
+                        .frame(width: size.width, height: geometry.stripHeight)
+                        .allowsHitTesting(false)
+                }
+            }
+            .accessibilityHidden(true)
+    }
+
+    private var resting: some View {
         NotchCapsuleRow(size: size, geometry: geometry) {
             HStack(spacing: 5) {
                 switch service.idleContent {
@@ -194,7 +218,6 @@ struct NotchCapsuleRestingView: View {
             }
             .foregroundStyle(.white.opacity(0.9))
         }
-        .accessibilityHidden(true)
     }
 }
 

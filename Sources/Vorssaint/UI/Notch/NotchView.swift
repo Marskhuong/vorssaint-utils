@@ -80,7 +80,7 @@ struct NotchView: View {
                 NotchCaptureControlsView(options: options, service: service, layout: service.captureControlsLayout)
             }
         } else if service.expanded {
-            expanded
+            if service.showingCommandBar { commandBarPage } else { expanded }
         } else if service.dragPlaceholder {
             Label(text.dropHint, systemImage: "tray.and.arrow.down")
                 .font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
@@ -207,6 +207,16 @@ struct NotchView: View {
     }
 
     private var compact: some View { NotchRestingStrip(service: service) }
+
+    /// The Command Bar in the open island: its field below the camera, its
+    /// list below the field, and the island as tall as the two.
+    private var commandBarPage: some View {
+        CommandBarView(presentation: .island)
+            .fixedSize(horizontal: false, vertical: true)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { service.updateCommandBarHeight($0) }
+            .padding(.top, service.geometry.safeContentTop)
+            .frame(width: service.surfaceSize.width, height: service.surfaceSize.height, alignment: .top)
+    }
 
     private var showsDetail: Bool { service.showingAppPanel || service.selectedMetric != nil }
 
@@ -589,11 +599,14 @@ private extension UpdateService.State {
 
 /// The closed island at rest beside a camera: the wings with the charge,
 /// the song or the AI allowance the person chose, when the menus leave room.
+/// The companion rests in a wing when nothing else is there, and walks
+/// through on its visits.
 struct NotchRestingStrip: View {
     @ObservedObject var service: NotchService
     /// Another display's strip, when the island shows on every display.
     var displayGeometry: NotchGeometry? = nil
     @ObservedObject private var music = NotchMusicService.shared
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var geometry: NotchGeometry { displayGeometry ?? service.geometry }
 
@@ -603,47 +616,69 @@ struct NotchRestingStrip: View {
         min(16, NotchLayout.shoulder(height: geometry.stripHeight) + NotchLayout.compactEdgeGap)
     }
 
+    /// A visit walks over what the island rests with, which steps aside meanwhile.
+    private var contentStepsAside: Bool { service.mascotVisit != nil && !service.mascotAtRest }
+
     var body: some View {
-        HStack(spacing: 0) {
-            if service.idleContent != .none, geometry.restingWingWidth > 0 {
-                Group {
-                    switch service.idleContent {
-                    case .music:
-                        if let artwork = music.artwork {
-                            Image(nsImage: artwork).resizable().scaledToFill()
-                                .frame(width: min(22, geometry.stripHeight - 6), height: min(22, geometry.stripHeight - 6))
-                                .clipShape(RoundedRectangle(cornerRadius: 5))
+        ZStack {
+            HStack(spacing: 0) {
+                if service.idleContent != .none, geometry.restingWingWidth > 0 {
+                    // Each wing keeps its width even when it has nothing to
+                    // show, or the other one slides toward the camera.
+                    ZStack(alignment: .trailing) {
+                        Color.clear
+                        switch service.idleContent {
+                        case .music:
+                            if let artwork = music.artwork {
+                                Image(nsImage: artwork).resizable().scaledToFill()
+                                    .frame(width: min(22, geometry.stripHeight - 6), height: min(22, geometry.stripHeight - 6))
+                                    .clipShape(RoundedRectangle(cornerRadius: 5))
+                            }
+                        case .battery:
+                            Image(systemName: "battery.100percent").font(.system(size: 12))
+                                .padding(.leading, restingBatteryInset)
+                        case .agents:
+                            NotchAgentRestingWing(leading: true)
+                                .padding(.leading, restingBatteryInset)
+                        case .none: EmptyView()
                         }
-                    case .battery:
-                        Image(systemName: "battery.100percent").font(.system(size: 12))
-                            .padding(.leading, restingBatteryInset)
-                    case .agents:
-                        NotchAgentRestingWing(leading: true)
-                            .padding(.leading, restingBatteryInset)
-                    case .none: EmptyView()
-                    }
-                }.frame(width: geometry.restingWingWidth, alignment: .trailing)
-                Color.clear.frame(width: geometry.cameraWidth)
-                Group {
-                    switch service.idleContent {
-                    case .music:
-                        if music.playback?.isPlaying == true {
-                            NotchLiveEqualizerBars(bars: 3, barWidth: 2, height: 11,
-                                                   tint: music.artworkTint?.color ?? .white)
-                        }
-                    case .battery:
-                        if let percent = service.power.chargePercent {
-                            Text("\(percent)%").font(.system(size: 9, weight: .medium)).monospacedDigit()
-                                .lineLimit(1)
+                    }.frame(width: geometry.restingWingWidth)
+                    Color.clear.frame(width: geometry.cameraWidth)
+                    ZStack(alignment: .leading) {
+                        Color.clear
+                        switch service.idleContent {
+                        case .music:
+                            if music.playback?.isPlaying == true {
+                                NotchLiveEqualizerBars(bars: 3, barWidth: 2, height: 11,
+                                                       tint: music.artworkTint?.color ?? .white)
+                            }
+                        case .battery:
+                            if let percent = service.power.chargePercent {
+                                Text("\(percent)%").font(.system(size: 9, weight: .medium)).monospacedDigit()
+                                    .lineLimit(1)
+                                    .padding(.trailing, restingBatteryInset)
+                            }
+                        case .agents:
+                            NotchAgentRestingWing(leading: false)
                                 .padding(.trailing, restingBatteryInset)
+                        case .none: EmptyView()
                         }
-                    case .agents:
-                        NotchAgentRestingWing(leading: false)
-                            .padding(.trailing, restingBatteryInset)
-                    case .none: EmptyView()
-                    }
-                }.frame(width: geometry.restingWingWidth, alignment: .leading)
-            } else { Color.clear }
+                    }.frame(width: geometry.restingWingWidth)
+                } else { Color.clear }
+            }
+            .opacity(contentStepsAside ? 0 : 1)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: contentStepsAside)
+            if service.mascotShows(on: geometry) {
+                NotchMascotTrackView(look: NotchMascotSupport.look(),
+                                     track: NotchMascotSupport.track(stripWidth: geometry.collapsed.width,
+                                                                     stripHeight: geometry.stripHeight,
+                                                                     wing: geometry.restingWingWidth,
+                                                                     cameraWidth: geometry.cameraWidth, floats: false,
+                                                                     bodyHeight: geometry.stripBodyHeight),
+                                     rests: service.mascotAtRest, visit: service.mascotVisit)
+                    .frame(width: geometry.collapsed.width, height: geometry.stripHeight)
+                    .allowsHitTesting(false)
+            }
         }
         .foregroundStyle(.white.opacity(0.9))
         .frame(maxWidth: .infinity, maxHeight: .infinity)

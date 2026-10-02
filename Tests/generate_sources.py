@@ -969,7 +969,7 @@ def main():
           + "final class NotchService {\nstatic var shared = NotchService()\n"
           + "var presentationWindow: NSPanel? = NSPanel()\nvar acceptsSystemFeedback = true\n"
           + "var expanded = true\nvar selected = NotchModule.captures\nvar showingAppPanel = false\n"
-          + "var showingSections = false\nvar selectedMetric: Int?\nvar captureControls: Int?\n"
+          + "var showingSections = false\nvar showingCommandBar = false\nvar selectedMetric: Int?\nvar captureControls: Int?\n"
           + "var captureID: UUID?\nvar captureContent: Bool? = true\n"
           + declaration("Sources/Vorssaint/Services/Notch/NotchService.swift", "    func isCaptureVisible(")
           + "}\nfinal class Preview {\n"

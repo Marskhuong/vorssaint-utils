@@ -454,6 +454,7 @@ struct NotchSettings: View {
                 }
                 switchRow("menubar.rectangle", text.coverMenus, caption: text.coverMenusHint, isOn: $coversMenus)
             }
+            NotchMascotSettingsCard()
             SettingsCard(title: editor.feedback) {
                 let volumeAvailable = AppFeature.mixer.isAvailable
                 let brightnessAvailable = AppFeature.brightness.isAvailable && brightnessControlEnabled

@@ -876,6 +876,14 @@ enum DefaultsKey {
     static let notchShowInCaptures = "notchShowInCaptures"
     static let notchLockScreen = "notchLockScreen" // music and live activities over the lock screen
     static let notchLockSounds = "notchLockSounds" // padlock sounds as the Mac locks and unlocks
+    // Companion: a small friend who rests in the closed island and is the Command Bar's face.
+    static let notchMascotEnabled = "notchMascotEnabled"
+    static let notchMascotVisits = "notchMascotVisits" // passes through the island now and then
+    static let notchMascotStyle = "notchMascotStyle" // NotchMascotStyle.rawValue
+    static let notchMascotShape = "notchMascotShape" // NotchMascotShape.rawValue
+    static let notchMascotPalette = "notchMascotPalette" // NotchMascotPalette.rawValue
+    static let notchCommandBar = "notchCommandBar" // the Command Bar comes out of the island
+    static let notchCommandBarStyle = "notchCommandBarStyle" // NotchCommandBarStyle.rawValue
     // Legacy inverse preference; the explicit visibility switch supersedes it.
     static let notchHideInCaptures = "notchHideInCaptures"
     static let panelControlNotch = "panelControlNotch"
@@ -1428,6 +1436,13 @@ enum Defaults {
         DefaultsKey.notchShowInCaptures: true,
         DefaultsKey.notchLockScreen: false,
         DefaultsKey.notchLockSounds: false,
+        DefaultsKey.notchMascotEnabled: false,
+        DefaultsKey.notchMascotVisits: true,
+        DefaultsKey.notchMascotStyle: NotchMascotStyle.minimal.rawValue,
+        DefaultsKey.notchMascotShape: NotchMascotShape.ball.rawValue,
+        DefaultsKey.notchMascotPalette: NotchMascotPalette.pearl.rawValue,
+        DefaultsKey.notchCommandBar: true,
+        DefaultsKey.notchCommandBarStyle: NotchCommandBarStyle.droplet.rawValue,
         DefaultsKey.notchHideInCaptures: false,
         DefaultsKey.panelControlNotch: true,
         DefaultsKey.radialMenuEnabled: false,
