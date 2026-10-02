@@ -215,6 +215,8 @@ final class NotchService: ObservableObject {
     private var nextMascotVisitWork: DispatchWorkItem?
     /// Visits were on at the last preference sync, so turning them on is greeted.
     private var mascotVisitsWereOn = false
+    /// The companion is out in the Command Bar's drop; the island rests without it.
+    @Published private(set) var mascotInBar = false
     /// The Command Bar open inside the island, in place of its pages.
     @Published private(set) var showingCommandBar = false
     @Published private var commandBarHeight: CGFloat?
@@ -256,7 +258,7 @@ final class NotchService: ObservableObject {
     }
 
     /// The companion rests in the closed island when nothing else is there.
-    var mascotAtRest: Bool { NotchMascotSupport.isEnabled() && idleContent == .none }
+    var mascotAtRest: Bool { NotchMascotSupport.isEnabled() && idleContent == .none && !mascotInBar }
 
     /// Whether the closed island on `geometry` draws the companion: resting,
     /// or strolling through, where its wings fit beside the camera. A capsule
@@ -960,6 +962,7 @@ final class NotchService: ObservableObject {
         nextMascotVisitWork?.cancel(); nextMascotVisitWork = nil
         mascotVisitWork?.cancel(); mascotVisitWork = nil
         mascotVisit = nil
+        mascotInBar = false
         commandBarHeight = nil
         if showingCommandBar {
             showingCommandBar = false
@@ -3526,7 +3529,7 @@ extension NotchService {
 
     /// A visit needs the closed island at rest and on screen, with room for its wings.
     private var canHostMascotVisit: Bool {
-        showsSystemFeedback && !expanded && !peeking && !dragPlaceholder && notice == nil && captureControls == nil
+        showsSystemFeedback && !mascotInBar && !expanded && !peeking && !dragPlaceholder && notice == nil && captureControls == nil
             && compactActivity == nil && !showsCompactActivityPicker && !fullscreenCompact
             && panel?.isVisible == true && (geometry.floats || geometry.restingWingWidth > 0)
     }
@@ -3550,8 +3553,11 @@ extension NotchService {
     func presentCommandBar() -> NSPanel? {
         guard NotchSupport.isEnabled(), acceptsUserInteraction, !hiddenInFullscreen, captureControls == nil,
               !heldDrag, geometry.screen.contains(NSEvent.mouseLocation), let panel else { return nil }
-        (NSApp.delegate as? AppDelegate)?.closePopover(preservingNotch: true)
+        // The keyboard first, before the island changes shape, so keys typed
+        // right after the shortcut wait here for the bar's field.
         panel.acceptsKeyFocus = true
+        panel.makeKey()
+        (NSApp.delegate as? AppDelegate)?.closePopover(preservingNotch: true)
         hoverState.open()
         hoverWork?.cancel()
         if !expanded { removeHoverExitMonitors() }
@@ -3570,6 +3576,14 @@ extension NotchService {
         syncVisibleConsumers()
         panel.makeKey()
         return panel
+    }
+
+    /// The companion leaves the island for the Command Bar's drop, and comes
+    /// back to rest once the drop has risen into it again.
+    func setMascotInBar(_ away: Bool) {
+        guard away != mascotInBar else { return }
+        if away, mascotVisit != nil { endMascotVisit() }
+        mutatePresentation { mascotInBar = away }
     }
 
     /// The bar closed itself; the island closes with it.

@@ -45,6 +45,8 @@ final class CommandBarDroplet {
     func drop(from island: CGRect, into bar: CGRect, look: NotchMascotLook, revealed: @escaping () -> Void) {
         cancel()
         self.island = island
+        // The companion goes into the drop; the island rests without it.
+        NotchService.shared.setMascotInBar(true)
         guard !Self.reducesMotion else { revealed(); return }
         let current = generation
         falling = true
@@ -84,7 +86,10 @@ final class CommandBarDroplet {
     func retract(from bar: CGRect, look: NotchMascotLook, mood: NotchMascotMood) {
         let unseen = falling
         cancel()
-        guard !unseen, !Self.reducesMotion, let island = NotchService.shared.commandBarDropSource() ?? island else { return }
+        guard !unseen, !Self.reducesMotion, let island = NotchService.shared.commandBarDropSource() ?? island else {
+            NotchService.shared.setMascotInBar(false)
+            return
+        }
         let current = generation
         let field = CGRect(x: bar.minX, y: bar.maxY - CommandBarView.fieldHeight,
                            width: bar.width, height: CommandBarView.fieldHeight)
@@ -99,6 +104,8 @@ final class CommandBarDroplet {
         play(motion, edge: edge, centerX: centerX, begin: CACurrentMediaTime()) { [weak self] in
             guard let self, self.generation == current else { return }
             self.panel?.orderOut(nil)
+            // Back in the island, it rests there again.
+            NotchService.shared.setMascotInBar(false)
         }
     }
 

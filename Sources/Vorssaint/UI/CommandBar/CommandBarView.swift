@@ -192,13 +192,22 @@ struct CommandBarView: View {
         .environment(\.colorScheme, shownAs == .window ? colorScheme : .dark)
         .background(backdrop)
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .onAppear { focusSearch() }
+        .onAppear {
+            focusSearch()
+            service.barDidAppear()
+        }
         .onChange(of: service.presentationID) { _, _ in focusSearch() }
         .onChange(of: service.mode) { _, _ in focusSearch() }
     }
 
+    /// Only the copy on screen asks for the keyboard: a hidden copy taking it
+    /// would hand its own empty text back to the search.
+    private var isShown: Bool {
+        presentation == .island ? service.presentation == .island : service.presentation != .island
+    }
+
     private func focusSearch() {
-        DispatchQueue.main.async { searchFocused = true }
+        DispatchQueue.main.async { if isShown { searchFocused = true } }
     }
 
     // MARK: - Field

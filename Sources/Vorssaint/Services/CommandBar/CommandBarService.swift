@@ -222,6 +222,12 @@ final class CommandBarService: ObservableObject {
     /// has not moved must not steal the selection from the keyboard.
     private var lastPointerLocation = NSPoint.zero
     private var panelScreen: NSRect?
+    /// The island's panel while the bar is open inside it.
+    private weak var islandHost: NSPanel?
+    /// Where the drop leaves the island, read as the bar takes the keyboard.
+    private var dropSource: CGRect?
+    /// Keys typed before the field was drawn, kept in order for it.
+    private var pendingKeys: [NSEvent] = []
     /// The selected row's id, so a rebuilt list keeps the selection on the
     /// same command instead of on the same position.
     private var selectedID: String?
@@ -260,10 +266,16 @@ final class CommandBarService: ObservableObject {
         syncRowHotkeys()
         if available {
             // Build the one view tree after launch, outside the keystroke that
-            // asks to see it for the first time.
+            // asks to see it for the first time, and lay it out: a window draws
+            // itself before it first appears, and keys typed meanwhile would
+            // still reach the app in front.
             DispatchQueue.main.async { [weak self] in
                 guard AppFeature.commandBar.isAvailable, let self else { return }
-                _ = self.ensurePanel()
+                let panel = self.ensurePanel()
+                if !panel.isVisible {
+                    panel.contentViewController?.view.layoutSubtreeIfNeeded()
+                    panel.display()
+                }
             }
         }
         if !available {
@@ -321,6 +333,11 @@ final class CommandBarService: ObservableObject {
     private func show(promptingFor stableKey: String?) {
         guard AppFeature.commandBar.isAvailable else { return }
         let panel = ensurePanel()
+        // The window that shows the bar takes the keyboard before anything is
+        // prepared, so keys typed right after the shortcut wait in this app
+        // for the field instead of reaching the app in front.
+        let reopening = isVisible
+        if !reopening { claimKeyboard(with: panel) }
         if AppFeature.textSnippets.isAvailable {
             TextSnippetService.shared.setCommandBarVisible(true)
         }
@@ -330,7 +347,7 @@ final class CommandBarService: ObservableObject {
         query = ""
         refreshResults()
         adoptASCIIInputSource()
-        present(panel)
+        present(panel, reopening: reopening)
         // Ordering the prepared panel is the keystroke path. Home is filled on
         // the next main-loop turn, when a close or newer opening can supersede it.
         DispatchQueue.main.async { [weak self] in
@@ -366,6 +383,7 @@ final class CommandBarService: ObservableObject {
         activeCategory = nil
         isPeekingHome = false
         farewell = .wink
+        pendingKeys = []
         return id
     }
 
@@ -404,41 +422,50 @@ final class CommandBarService: ObservableObject {
         loadUninstallSelectionEntries(for: id)
     }
 
-    private func present(_ panel: NSPanel) {
+    /// Decides where the bar shows and gives that window the keyboard,
+    /// unseen until the bar is ready in it.
+    private func claimKeyboard(with panel: NSPanel) {
         CommandBarDroplet.shared.cancel()
-        switch NotchMascotSupport.commandBarStyle() {
-        case .island?:
-            if let host = NotchService.shared.presentCommandBar() {
-                presentation = .island
-                installMonitors(for: host)
-                focusField(in: host)
-                // SwiftUI draws the bar into the island on its next pass.
-                DispatchQueue.main.async { [weak self, weak host] in
-                    guard let self, let host, self.presentation == .island else { return }
-                    self.focusField(in: host)
-                }
-                return
+        dropSource = nil
+        let style = NotchMascotSupport.commandBarStyle()
+        if style == .island, let host = NotchService.shared.presentCommandBar() {
+            islandHost = host
+            presentation = .island
+            NotchService.shared.setMascotInBar(false)
+            return
+        }
+        dropSource = style == .droplet ? NotchService.shared.commandBarDropSource() : nil
+        presentation = dropSource == nil ? .window : .droplet
+        // A drop takes the bar's shape on the way back, so the window goes at
+        // once instead of fading over it.
+        panel.animationBehavior = dropSource == nil ? .default : .none
+        // Only a drop takes the companion out of the island.
+        if dropSource == nil { NotchService.shared.setMascotInBar(false) }
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+        panel.makeKey()
+    }
+
+    private func present(_ panel: NSPanel, reopening: Bool) {
+        if presentation == .island, let host = islandHost {
+            installMonitors(for: host)
+            // SwiftUI draws the bar into the island on its next pass; its
+            // field takes the keyboard when it appears.
+            focusField(in: host)
+            return
+        }
+        if presentation == .droplet, let island = dropSource {
+            installMonitors(for: panel)
+            guard !reopening else { focusField(in: panel); return }
+            hang(panel, below: island)
+            focusField(in: panel)
+            // Still unseen: what is typed while the drop falls lands in the field.
+            CommandBarDroplet.shared.drop(from: island, into: panel.frame, look: NotchMascotSupport.look()) {
+                [weak self, weak panel] in
+                guard let self, let panel, self.presentation == .droplet, panel.isVisible else { return }
+                panel.alphaValue = 1
             }
-        case .droplet?:
-            if let island = NotchService.shared.commandBarDropSource() {
-                presentation = .droplet
-                hang(panel, below: island)
-                installMonitors(for: panel)
-                // The bar takes the keyboard at once, still unseen, so what is
-                // typed while the drop falls lands in the field.
-                panel.alphaValue = 0
-                panel.orderFrontRegardless()
-                panel.makeKey()
-                focusField(in: panel)
-                CommandBarDroplet.shared.drop(from: island, into: panel.frame, look: NotchMascotSupport.look()) {
-                    [weak self, weak panel] in
-                    guard let self, let panel, self.presentation == .droplet, panel.isVisible else { return }
-                    panel.alphaValue = 1
-                }
-                return
-            }
-        case nil:
-            break
+            return
         }
         presentation = .window
         position(panel)
@@ -482,6 +509,21 @@ final class CommandBarService: ObservableObject {
         return nil
     }
 
+    /// The bar's field is on screen: it takes the keyboard and the keys
+    /// typed before it was drawn.
+    func barDidAppear() {
+        DispatchQueue.main.async { [weak self] in self?.deliverPendingKeys() }
+    }
+
+    private func deliverPendingKeys() {
+        guard !pendingKeys.isEmpty || presentation == .island,
+              let window = presentation == .island ? islandHost : panel, window.isVisible,
+              focusField(in: window) else { return }
+        let keys = pendingKeys
+        pendingKeys = []
+        keys.forEach(window.sendEvent)
+    }
+
     /// The island closed around the bar on its own, from a click away or a
     /// page opened in its place.
     func islandDidClose() {
@@ -515,6 +557,7 @@ final class CommandBarService: ObservableObject {
         removeMonitors()
         panel?.orderOut(nil)
         awaitsAnswers = false
+        pendingKeys = []
         if let dropped {
             CommandBarDroplet.shared.retract(from: dropped, look: NotchMascotSupport.look(), mood: farewell)
         }
@@ -3318,8 +3361,14 @@ final class CommandBarService: ObservableObject {
                 // what looks like an ordinary search.
                 if case .confirm = self.mode { self.stepBack() }
                 if case .naming = self.mode { self.aliasWarning = nil }
-                // A key typed before the field took the keyboard goes to it.
-                if !(panel.firstResponder is NSTextView) { self.focusField(in: panel) }
+                // A key typed before the field took the keyboard goes to it, or
+                // waits for it while the island is still drawing the bar.
+                if !(panel.firstResponder is NSTextView), !self.focusField(in: panel),
+                   self.presentation == .island {
+                    self.pendingKeys.append(event)
+                    DispatchQueue.main.async { self.deliverPendingKeys() }
+                    return nil
+                }
                 return event
             }
         }
