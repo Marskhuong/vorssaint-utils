@@ -54,7 +54,7 @@ struct NotchMascotSettingsCard: View {
         }
     }
 
-    /// The companion on a slice of black island; a click shows its next face.
+    /// The companion on a slice of black island. A click shows its next face.
     private var preview: some View {
         Button {
             face = (face + 1) % (NotchMascotMood.showcase.count + 1)
@@ -86,8 +86,7 @@ struct NotchMascotSettingsCard: View {
                         NotchMascotView(look: NotchMascotLook(style: .minimal, shape: item, palette: look.palette),
                                         size: 24, idles: false)
                             .frame(width: 24, height: 24)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 38)
+                            .frame(width: 58, height: 40)
                             .background(Color.black, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous)
                                 .strokeBorder(selected ? Color.accentColor : .clear, lineWidth: 2))

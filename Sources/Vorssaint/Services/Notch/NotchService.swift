@@ -215,7 +215,9 @@ final class NotchService: ObservableObject {
     private var nextMascotVisitWork: DispatchWorkItem?
     /// Visits were on at the last preference sync, so turning them on is greeted.
     private var mascotVisitsWereOn = false
-    /// The companion is out in the Command Bar's drop; the island rests without it.
+    /// Whether the companion was on at the last preference sync, nil before the first.
+    private var mascotWasEnabled: Bool?
+    /// The companion is out in the Command Bar's drop, and the island rests without it.
     @Published private(set) var mascotInBar = false
     /// The Command Bar open inside the island, in place of its pages.
     @Published private(set) var showingCommandBar = false
@@ -399,6 +401,16 @@ final class NotchService: ObservableObject {
     }
 
     private var compactMusicIsVisible: Bool { compactActivityIsVisible && compactActivity == .music }
+
+    /// The song the closed island drew at its last refresh, for the frames
+    /// between the music stopping and the refresh that lets it depart. The
+    /// view reads playback live, so it kept drawing what rests under the
+    /// song for that frame: the companion flashed there.
+    var lingeringMusic: NotchCompactMusicSnapshot? {
+        guard let presentedMusic, departingMusic == nil, compactActivity == nil, !expanded, !peeking,
+              notice == nil, !dragPlaceholder, captureControls == nil else { return nil }
+        return heldMusic ?? presentedMusic
+    }
 
     var compactActivityGeometry: NotchGeometry {
         compactGeometry(for: compactActivity, companion: compactCompanion)
@@ -668,7 +680,10 @@ final class NotchService: ObservableObject {
     }
     var contentSize: CGSize { expandedGeometry.contentSize(for: expandedSize) }
     var usesGlassSurface: Bool {
-        expanded || peeking || dragPlaceholder || noticeExpanded
+        // The Command Bar keeps the island black, as its drop is: it changes
+        // height with every keystroke, and the glass is drawn a frame behind
+        // the shape, which showed rows outside it for that frame.
+        (expanded && !showingCommandBar) || peeking || dragPlaceholder || noticeExpanded
             || (captureControls != nil && !captureControlsCollapsed)
     }
 
@@ -909,7 +924,12 @@ final class NotchService: ObservableObject {
         if captureControls != nil, !NotchSupport.routesCaptureControls() { cancelCaptureControls() }
         syncNoticeWithPreferences()
         syncVisibleConsumers()
-        refreshPresentation(animated: false)
+        // Turning the companion on or off grows or folds the wings it rests
+        // in, in view, as music arriving does. Other preferences apply at once.
+        let mascotEnabled = NotchMascotSupport.isEnabled()
+        let mascotToggled = mascotWasEnabled.map { $0 != mascotEnabled } ?? false
+        mascotWasEnabled = mascotEnabled
+        refreshPresentation(animated: mascotToggled && !expanded)
         syncMascotVisits()
         // Pages read their preferences as they draw, and a change that keeps
         // the island's size publishes nothing else: hiding a control left the
@@ -3479,7 +3499,7 @@ final class NotchService: ObservableObject {
 
 extension NotchService {
     /// Visits come every few minutes while the island rests. One is set up at
-    /// a time, minutes ahead; nothing ticks in between, and the stroll itself
+    /// a time, minutes ahead. Nothing ticks in between, and the stroll itself
     /// is Core Animation's to draw.
     fileprivate func syncMascotVisits() {
         let visits = running && NotchMascotSupport.visits()
@@ -3508,7 +3528,7 @@ extension NotchService {
         nextMascotVisitWork = nil
         guard NotchMascotSupport.visits() else { return }
         // Busy, hidden or out of room: it tries again on its next visit.
-        guard canHostMascotVisit else {
+        guard canHostMascotVisit(), mascotVisit == nil else {
             scheduleMascotVisit(after: NotchMascotSupport.nextVisitDelay())
             return
         }
@@ -3527,10 +3547,11 @@ extension NotchService {
         if running, NotchMascotSupport.visits() { scheduleMascotVisit(after: NotchMascotSupport.nextVisitDelay()) }
     }
 
-    /// A visit needs the closed island at rest and on screen, with room for its wings.
-    private var canHostMascotVisit: Bool {
-        showsSystemFeedback && !mascotInBar && !expanded && !peeking && !dragPlaceholder && notice == nil && captureControls == nil
-            && compactActivity == nil && !showsCompactActivityPicker && !fullscreenCompact
+    /// A visit needs the closed island at rest and on screen, with room for
+    /// its wings. The companion coming back from the bar is not out in it.
+    private func canHostMascotVisit(returning: Bool = false) -> Bool {
+        showsSystemFeedback && (returning || !mascotInBar) && !expanded && !peeking && !dragPlaceholder && notice == nil
+            && captureControls == nil && compactActivity == nil && !showsCompactActivityPicker && !fullscreenCompact
             && panel?.isVisible == true && (geometry.floats || geometry.restingWingWidth > 0)
     }
 
@@ -3549,7 +3570,7 @@ extension NotchService {
     }
 
     /// Opens the island around the Command Bar and hands over its panel,
-    /// which then holds the keyboard; nil when the island cannot open here.
+    /// which then holds the keyboard. Nil when the island cannot open here.
     func presentCommandBar() -> NSPanel? {
         guard NotchSupport.isEnabled(), acceptsUserInteraction, !hiddenInFullscreen, captureControls == nil,
               !heldDrag, geometry.screen.contains(NSEvent.mouseLocation), let panel else { return nil }
@@ -3579,21 +3600,43 @@ extension NotchService {
     }
 
     /// The companion leaves the island for the Command Bar's drop, and comes
-    /// back to rest once the drop has risen into it again.
-    func setMascotInBar(_ away: Bool) {
+    /// back to rest once the drop has risen into it again. Back from a drop
+    /// it saw rise, it hops out from behind the camera to its place,
+    /// wearing `homecoming` until it lands.
+    func setMascotInBar(_ away: Bool, homecoming: NotchMascotMood? = nil) {
         guard away != mascotInBar else { return }
         if away, mascotVisit != nil { endMascotVisit() }
-        mutatePresentation { mascotInBar = away }
+        let home = homecoming.flatMap { mood -> NotchMascotVisit? in
+            guard !away, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, NotchMascotSupport.isEnabled(),
+                  idleContent == .none, canHostMascotVisit(returning: true) else { return nil }
+            return NotchMascotVisit(id: UUID(), kind: .home, greeting: mood, start: CACurrentMediaTime())
+        }
+        mutatePresentation {
+            mascotInBar = away
+            if let home { mascotVisit = home }
+        }
+        guard let home else { return }
+        mascotVisitWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.endMascotVisit() }
+        mascotVisitWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + home.duration + 0.1, execute: work)
     }
 
-    /// The bar closed itself; the island closes with it.
+    /// Puts `window` just under the island's, so what grows out of its edge
+    /// comes from behind it, and what rises into it goes behind it.
+    func orderBelowIsland(_ window: NSWindow) {
+        guard let panel, panel.isVisible else { window.orderFrontRegardless(); return }
+        window.order(.below, relativeTo: panel.windowNumber)
+    }
+
+    /// The bar closed itself, and the island closes with it.
     func dismissCommandBar() {
         guard showingCommandBar else { return }
         collapse()
     }
 
     /// The island closed around the bar, from a click away or a page opened
-    /// in its place; the bar closes too.
+    /// in its place, and the bar closes too.
     fileprivate func commandBarDidClose() {
         commandBarHeight = nil
         CommandBarService.shared.islandDidClose()

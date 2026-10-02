@@ -71,7 +71,7 @@ struct NotchMascotStrings {
         style == .island ? openIsland : droplet
     }
 
-    /// The name of a face; at rest it has none of its own.
+    /// The name of a face. At rest it has none of its own.
     func mood(_ mood: NotchMascotMood) -> String {
         switch mood {
         case .idle: return title

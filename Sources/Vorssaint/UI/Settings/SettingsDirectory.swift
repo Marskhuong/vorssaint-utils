@@ -153,6 +153,7 @@ enum SettingsDirectory {
         if BrightnessService.keyboardLightIsSupported {
             items.append(SettingsSearchSupport.keyboardBrightnessShortcutItem(language: language))
         }
+        items.append(SettingsSearchSupport.notchCompanionItem(language: language))
         return items
     }
 
@@ -353,11 +354,7 @@ enum SettingsDirectory {
                                                  FeatureStrings.notchAgents(language).title, "Claude", "Codex", "OpenCode", "AI", "tokens",
                                                  FeatureStrings.notchAgents(language).resetsCard,
                                                  FeatureStrings.notchLockScreen(language).title,
-                                                 FeatureStrings.notchLockScreen(language).sounds,
-                                                 FeatureStrings.notchMascot(language).title,
-                                                 FeatureStrings.notchMascot(language).visits,
-                                                 FeatureStrings.notchMascot(language).robot,
-                                                 FeatureStrings.notchMascot(language).commandBar]
+                                                 FeatureStrings.notchLockScreen(language).sounds]
                                           // The fit card only appears with a camera housing to fit.
                                           + (NotchSupport.hasNotchedDisplay ? [FeatureStrings.notch(language).cameraFit] : [])
                                           + (NotchSupport.hasDisplayWithoutNotch

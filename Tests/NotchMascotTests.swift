@@ -13,6 +13,7 @@ enum NotchMascotTests {
         outlineContracts(suite)
         trackContracts(suite)
         strollContracts(suite)
+        homecomingContracts(suite)
         commandBarContracts(suite)
         dropletContracts(suite)
     }
@@ -178,7 +179,7 @@ enum NotchMascotTests {
                                                floats: true, bodyHeight: 20)
         for (name, track) in [("notch", notch), ("capsule", capsule)] {
             for kind in [NotchMascotVisit.Kind.lap, .pass] {
-                let path = kind == .lap ? NotchMascotMotion.lap(on: track) : NotchMascotMotion.pass(on: track)
+                let path = NotchMascotMotion.path(for: kind, on: track)
                 let label = "\(name) \(kind == .lap ? "lap" : "pass")"
                 let counts = Set([path.keyTimes.count, path.x.count, path.lift.count, path.squash.count, path.gaze.count])
                 suite.expect(counts.count == 1 && path.keyTimes.first == 0 && path.keyTimes.last == 1
@@ -190,9 +191,17 @@ enum NotchMascotTests {
                 suite.expect(path.lift.allSatisfy { $0 >= 0 && $0 <= track.size * 0.4 }
                              && path.squash.allSatisfy { abs($0) <= 0.15 },
                              "the \(label) hops stay low and its squashes small")
+                suite.expect(path.lift.allSatisfy { track.baseline - $0 - track.size / 2 >= track.ceiling + 1 },
+                             "the \(label) never hops into the island's top edge")
                 if kind == .lap {
                     suite.expect(abs((path.x.first ?? 0) - track.rest) < 0.01 && abs((path.x.last ?? 0) - track.rest) < 0.01,
                                  "the \(label) leaves its resting place and comes back to it")
+                    // Between two frames it never crosses the strip: a frame
+                    // drawn in between would show it in the middle.
+                    let crossings = zip(zip(path.x, path.x.dropFirst()), zip(path.keyTimes, path.keyTimes.dropFirst()))
+                        .filter { abs($0.0.1 - $0.0.0) > track.width / 2 }
+                    suite.expect(!crossings.isEmpty && crossings.allSatisfy { $0.1.0 == $0.1.1 },
+                                 "the \(label) goes around off stage in no time, never seen on the way")
                 } else {
                     suite.expect((path.x.first ?? 0) <= -track.size / 2 && (path.x.last ?? 0) >= track.width + track.size / 2,
                                  "the \(label) comes in at one end and leaves at the other")
@@ -220,6 +229,32 @@ enum NotchMascotTests {
         }
     }
 
+    private static func homecomingContracts(_ suite: TestSuite) {
+        let notch = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                             floats: false, bodyHeight: 32)
+        let capsule = NotchMascotSupport.track(stripWidth: 76, stripHeight: 24, wing: 0, cameraWidth: 0,
+                                               floats: true, bodyHeight: 20)
+        for (name, track) in [("notch", notch), ("capsule", capsule)] {
+            let path = NotchMascotMotion.path(for: .home, on: track)
+            let counts = Set([path.keyTimes.count, path.x.count, path.lift.count, path.squash.count, path.gaze.count])
+            suite.expect(counts.count == 1 && path.keyTimes.first == 0 && path.keyTimes.last == 1
+                         && path.duration == NotchMascotMotion.homeDuration && path.duration < 0.8,
+                         "coming home in a \(name) is one short run of frames")
+            suite.expect(abs((path.x.last ?? 0) - track.rest) < 0.01 && path.lift.last == 0,
+                         "coming home in a \(name) ends standing where it rests")
+            suite.expect(path.greeting.lowerBound == 0 && path.greeting.upperBound < path.duration,
+                         "it keeps the bar's face only until it lands")
+            if let hidden = track.hidden {
+                suite.expect((path.x.first ?? 0) - track.size / 2 > hidden.lowerBound
+                             && path.x.allSatisfy { $0 >= track.rest - 0.01 },
+                             "it comes out from behind the camera, never past its place")
+            } else {
+                suite.expect(path.x.allSatisfy { abs($0 - track.rest) < 0.01 },
+                             "in a capsule it lands where it rests, the drop having risen there")
+            }
+        }
+    }
+
     private static func commandBarContracts(_ suite: TestSuite) {
         suite.expect(NotchMascotSupport.commandBarMood(query: " ", hasResults: false, searching: true) == .idle,
                      "an empty field leaves the face at rest")
@@ -228,14 +263,23 @@ enum NotchMascotTests {
         suite.expect(NotchMascotSupport.commandBarMood(query: "fire", hasResults: true, searching: false) == .idle
                      && NotchMascotSupport.commandBarMood(query: "qzx", hasResults: false, searching: false) == .confused,
                      "it looks at the results, and looks lost when nothing matches")
-        suite.expect(NotchMascotSupport.celebrates(query: "fire", from: (false, false), to: (true, false))
-                     && NotchMascotSupport.celebrates(query: "fire", from: (false, true), to: (true, false))
-                     && NotchMascotSupport.celebrates(query: "fire", from: (true, true), to: (true, false)),
-                     "it celebrates results that arrive after none, or after waiting")
-        suite.expect(!NotchMascotSupport.celebrates(query: "fire", from: (true, false), to: (true, false))
-                     && !NotchMascotSupport.celebrates(query: "", from: (false, false), to: (true, false))
-                     && !NotchMascotSupport.celebrates(query: "fire", from: (false, false), to: (true, true)),
-                     "each keystroke in a list that keeps its results is not a party, and neither is the home list")
+        suite.expect(NotchMascotSupport.celebrates(from: .thinking, to: .idle, query: "fire", hasResults: true)
+                     && NotchMascotSupport.celebrates(from: .confused, to: .idle, query: "fire", hasResults: true),
+                     "it celebrates results that arrive after waiting, or after nothing matched")
+        suite.expect(!NotchMascotSupport.celebrates(from: .idle, to: .idle, query: "f", hasResults: true)
+                     && !NotchMascotSupport.celebrates(from: .confused, to: .idle, query: " ", hasResults: false)
+                     && !NotchMascotSupport.celebrates(from: .thinking, to: .confused, query: "fire", hasResults: false),
+                     "the first letters finding something is no party, nor is clearing the field or finding nothing")
+        suite.expect(NotchMascotSupport.readingGaze(for: "") == nil,
+                     "an empty field leaves the eyes ahead")
+        let short = NotchMascotSupport.readingGaze(for: "f"), long = NotchMascotSupport.readingGaze(for: String(repeating: "f", count: 60))
+        suite.expect((short?.x ?? 0) >= 0.06 && (long?.x ?? 0) > (short?.x ?? 0) && (long?.x ?? 1) <= 0.12,
+                     "its eyes go along the text beside it, further as it grows, and stay on its face")
+        let ahead = NotchMascotSupport.pointerGaze(from: CGPoint(x: 26, y: 16), to: CGPoint(x: 26, y: 16), size: 20)
+        let right = NotchMascotSupport.pointerGaze(from: CGPoint(x: 26, y: 16), to: CGPoint(x: 400, y: 16), size: 20)
+        let left = NotchMascotSupport.pointerGaze(from: CGPoint(x: 26, y: 16), to: CGPoint(x: 0, y: 30), size: 20)
+        suite.expect(ahead == .zero && right.x > 0 && abs(right.x) <= 0.08 && left.x < 0 && left.y > 0 && abs(left.y) <= 0.05,
+                     "its eyes turn toward the pointer, within its face")
     }
 
     private static func dropletContracts(_ suite: TestSuite) {
@@ -265,9 +309,13 @@ enum NotchMascotTests {
         suite.expect(drop.frames.allSatisfy { $0.bead.maxY <= field.maxY + 12 && $0.bead.minX >= field.minX - 12
                                                && $0.bead.maxX <= field.maxX + 12 },
                      "its spring opens it around the field, never far past it")
-        let pinched = drop.frames.firstIndex { $0.neckTip == 0 && $0.bead.minY > edge } ?? drop.frames.count
-        suite.expect(pinched < drop.frames.count && drop.frames[pinched...].allSatisfy { $0.neckTip == 0 },
-                     "the neck lets go once and stays gone")
+        let pinched = drop.frames.firstIndex { $0.neckEnd < $0.bead.minY - 0.5 } ?? drop.frames.count
+        suite.expect(pinched < drop.frames.count
+                     && drop.frames[pinched...].allSatisfy { $0.neckEnd < $0.bead.minY - 0.5 }
+                     && zip(drop.frames[pinched...], drop.frames[pinched...].dropFirst()).allSatisfy { $0.neckEnd >= $1.neckEnd },
+                     "the neck lets go once and draws back into the island")
+        suite.expect(drop.frames[pinched...].allSatisfy { $0.neckEnd - edge < 1 || $0.neckTip > 0.2 },
+                     "what is left of the neck ends round, never in a point")
 
         let bar = CGRect(x: field.minX, y: field.minY, width: field.width, height: 380)
         let back = CommandBarDropletMotion.retract(edge: edge, centerX: centerX, bar: bar, field: field, icon: icon)
@@ -278,6 +326,14 @@ enum NotchMascotTests {
         suite.expect(end.bead.midY < edge && end.mascotScale == CommandBarDropletMotion.ridingScale
                      && back.frames.allSatisfy { elements(CommandBarDropletMotion.neckPath($0, edge: edge, centerX: centerX)) == structure },
                      "and ends risen into the island, the companion small inside the drop")
+        let side = CommandBarDropletMotion.beadSide
+        suite.expect(back.frames.allSatisfy { frame in
+            let gap = frame.bead.minY - edge
+            let length = frame.neckEnd - edge
+            // Apart, the island only bulges toward the drop. Joined, the
+            // neck is wide where it meets it.
+            return length <= side * 0.3 + 0.5 || gap <= side * 0.3 + 2 || frame.neckTip >= 3
+        }, "rising, no thin thread ever stretches from the island to a drop still far off")
     }
 
     private static func elements(_ path: CGPath) -> [Int32] {

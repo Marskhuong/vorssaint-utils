@@ -55,6 +55,7 @@ enum SettingsSectionAnchor: String, CaseIterable, Hashable {
     case keyboardBrightnessShortcuts
     case fanControl
     case windowMaximizer
+    case notchCompanion
 
     var page: SettingsPage {
         switch self {
@@ -76,6 +77,7 @@ enum SettingsSectionAnchor: String, CaseIterable, Hashable {
         case .keyboardBrightnessShortcuts: return .shortcuts
         case .fanControl: return .monitor
         case .windowMaximizer: return .windowLayout
+        case .notchCompanion: return .notch
         }
     }
 }

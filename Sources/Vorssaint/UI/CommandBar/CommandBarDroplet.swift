@@ -6,7 +6,7 @@ import QuartzCore
 
 /// The drop that carries the Command Bar out of the Dynamic Island, in a
 /// window of its own at the island's level. `CommandBarDropletMotion` works
-/// out every frame once; Core Animation plays them, and the app only hears
+/// out every frame once. Core Animation plays them, and the app only hears
 /// when the drop has landed. The companion rides inside, live.
 final class CommandBarDroplet {
     static let shared = CommandBarDroplet()
@@ -45,7 +45,7 @@ final class CommandBarDroplet {
     func drop(from island: CGRect, into bar: CGRect, look: NotchMascotLook, revealed: @escaping () -> Void) {
         cancel()
         self.island = island
-        // The companion goes into the drop; the island rests without it.
+        // The companion goes into the drop, and the island rests without it.
         NotchService.shared.setMascotInBar(true)
         guard !Self.reducesMotion else { revealed(); return }
         let current = generation
@@ -63,8 +63,8 @@ final class CommandBarDroplet {
         prepare(in: area, look: look, mood: .surprised)
         mascot.turn(to: .idle, at: begin + motion.landing)
         play(motion, edge: edge, centerX: centerX, begin: begin, completion: nil)
-        // The bar takes over once the shape has all but arrived; the drop
-        // fades through the last of its swing on top of it.
+        // The bar takes over once the shape has all but arrived, and the
+        // drop fades through the last of its swing on top of it.
         CATransaction.begin()
         CATransaction.setCompletionBlock { [weak self] in
             guard let self, self.generation == current else { return }
@@ -82,7 +82,7 @@ final class CommandBarDroplet {
     }
 
     /// Folds the bar at `bar` back into a drop that rises into the island.
-    /// The bar's window is already gone; this draws its shape on the way.
+    /// The bar's window is already gone. This draws its shape on the way.
     func retract(from bar: CGRect, look: NotchMascotLook, mood: NotchMascotMood) {
         let unseen = falling
         cancel()
@@ -104,8 +104,8 @@ final class CommandBarDroplet {
         play(motion, edge: edge, centerX: centerX, begin: CACurrentMediaTime()) { [weak self] in
             guard let self, self.generation == current else { return }
             self.panel?.orderOut(nil)
-            // Back in the island, it rests there again.
-            NotchService.shared.setMascotInBar(false)
+            // Back in the island, it hops out to rest there again.
+            NotchService.shared.setMascotInBar(false, homecoming: mood)
         }
     }
 
@@ -176,7 +176,9 @@ final class CommandBarDroplet {
         mascot.configure(look: look, size: CommandBarDropletMotion.mascotSize, contentsScale: scale)
         mascot.reset(to: mood)
         CATransaction.commit()
-        panel.orderFrontRegardless()
+        // Under the island: the drop grows out from behind its edge and rises
+        // back behind it, as liquid it holds.
+        NotchService.shared.orderBelowIsland(panel)
     }
 
     private func play(_ motion: CommandBarDropletMotion, edge: CGFloat, centerX: CGFloat, begin: CFTimeInterval,
@@ -218,7 +220,7 @@ final class CommandBarDroplet {
         CATransaction.commit()
     }
 
-    /// The bar is in place under the drop; the drop fades off it.
+    /// The bar is in place under the drop, and the drop fades off it.
     private func fadeOut(_ current: Int) {
         CATransaction.begin()
         CATransaction.setCompletionBlock { [weak self] in

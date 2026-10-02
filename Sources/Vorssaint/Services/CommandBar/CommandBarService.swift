@@ -134,7 +134,7 @@ final class CommandBarService: ObservableObject {
     @Published private(set) var presentation = CommandBarPresentation.window
 
     /// True while a file search or a saved script is still answering what
-    /// was typed; the companion thinks meanwhile.
+    /// was typed. The companion thinks meanwhile.
     @Published private(set) var awaitsAnswers = false
 
     /// The companion's face as the bar goes back into the island: a wink
@@ -437,8 +437,11 @@ final class CommandBarService: ObservableObject {
         dropSource = style == .droplet ? NotchService.shared.commandBarDropSource() : nil
         presentation = dropSource == nil ? .window : .droplet
         // A drop takes the bar's shape on the way back, so the window goes at
-        // once instead of fading over it.
+        // once instead of fading over it. Out of the island the bar is flat
+        // black like the island, with no shadow to appear as the drop hands
+        // over or to vanish as it folds back.
         panel.animationBehavior = dropSource == nil ? .default : .none
+        panel.hasShadow = dropSource == nil
         // Only a drop takes the companion out of the island.
         if dropSource == nil { NotchService.shared.setMascotInBar(false) }
         panel.alphaValue = 0
@@ -449,8 +452,8 @@ final class CommandBarService: ObservableObject {
     private func present(_ panel: NSPanel, reopening: Bool) {
         if presentation == .island, let host = islandHost {
             installMonitors(for: host)
-            // SwiftUI draws the bar into the island on its next pass; its
-            // field takes the keyboard when it appears.
+            // SwiftUI draws the bar into the island on its next pass, and
+            // its field takes the keyboard when it appears.
             focusField(in: host)
             return
         }

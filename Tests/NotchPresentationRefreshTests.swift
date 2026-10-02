@@ -378,6 +378,11 @@ enum NotchPresentationRefreshContract {
         material.expanded = true
         material.refreshPresentation(animated: false)
         suite.expect(material.windowHost?.usesGlass == true, "expanded content requests the glass backdrop")
+        material.showingCommandBar = true
+        material.refreshPresentation(animated: false)
+        suite.expect(!material.usesGlassSurface && material.windowHost?.usesGlass == false,
+                     "the Command Bar keeps the open island black, as its drop is")
+        material.showingCommandBar = false
         material.expanded = false
         material.noticeExpanded = true
         material.refreshPresentation(animated: false)
@@ -578,6 +583,23 @@ enum NotchPresentationRefreshContract {
                      && changed.departingMusic?.track == 2 && changed.departingMusic?.artwork === newCover
                      && changed.departingMusic?.tint?.value == 2,
                      "a track and cover changed during playback remain current through departure")
+
+        let stopped = Service()
+        stopped.expanded = false
+        stopped.presentedMusic = NotchCompactMusicSnapshot(track: 3)
+        suite.expect(stopped.lingeringMusic?.track == 3,
+                     "music that just stopped stays drawn until the refresh that lets it depart")
+        _ = stopped.compactMusicTransition(.none, animated: true)
+        suite.expect(stopped.departingMusic?.track == 3 && stopped.lingeringMusic == nil,
+                     "its departure takes over the same track, with nothing drawn in between")
+        stopped.departingMusic = nil
+        stopped.compactActivity = .music
+        stopped.compactActivityIsVisible = true
+        suite.expect(stopped.lingeringMusic == nil, "live music is drawn as itself, never as a lingering copy")
+        stopped.compactActivity = nil
+        stopped.compactActivityIsVisible = false
+        stopped.expanded = true
+        suite.expect(stopped.lingeringMusic == nil, "an open island draws its page, not a lingering song")
 
         let closing = Service()
         closing.expanded = false

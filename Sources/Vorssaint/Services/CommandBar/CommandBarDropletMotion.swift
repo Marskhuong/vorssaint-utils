@@ -101,11 +101,12 @@ struct CommandBarDropletMotion: Equatable {
                 neckEnd = center.y - size.height * 0.3 * CGFloat(share)
                 pinchY = neckEnd
             } else {
-                // What is left of the neck springs back into the island.
+                // What is left of the neck springs back into the island,
+                // its torn end rounding off as liquid does, never a point.
                 let back = min(1, (time - pinchEnd) / neckBack)
                 neckEnd = pinchY + (edge - 1 - pinchY) * ease(back)
                 neckRoot = 10 * CGFloat(1 - back)
-                neckTip = 0
+                neckTip = min(3, neckRoot * 0.3) * CGFloat(min(1, back / 0.25))
                 if time < fallEnd {
                     // Falling, faster and faster, a little long.
                     let share = (time - pinchEnd) / max(0.001, fall)
@@ -189,11 +190,17 @@ struct CommandBarDropletMotion: Equatable {
                     let target = edge + side * 0.2
                     center.y = rest.y + (target - rest.y) * CGFloat(share * share)
                     size = CGSize(width: width * (1 - 0.15 * share), height: height * (1 + 0.2 * share))
-                    // The island reaches for it only once it is close.
-                    let near = min(1, max(0, 1 - (center.y - edge - side * 0.5) / (side * 1.2)))
-                    neckRoot = 14 * near
-                    neckTip = size.width * 0.45 * near
-                    neckEnd = center.y - size.height * 0.2
+                    // The island bulges toward the drop as it nears and joins
+                    // it once the two all but touch, so no thread ever
+                    // stretches across the gap between them.
+                    let gap = center.y - size.height / 2 - edge
+                    let near = ease(Double(1 - gap / (side * 1.6)))
+                    let reach = side * 0.3 * near
+                    let bridge = min(1, max(0, (reach + 2 - gap) / 4))
+                    let bulge = 9 * near
+                    neckRoot = bulge + (14 - bulge) * bridge
+                    neckTip = bulge * 0.45 + (size.width * 0.45 - bulge * 0.45) * bridge
+                    neckEnd = edge + reach + (center.y - size.height * 0.2 - edge - reach) * bridge
                     if time >= riseStart + rise {
                         let gone = min(1, (time - riseStart - rise) / absorb)
                         center.y = target - (side * 0.8) * gone

@@ -162,7 +162,7 @@ struct NotchView: View {
                 // cover and bars jumped out at once while the shape still grew.
                 activityStrip(activity, size: service.compactStripSize(for: activity, companion: service.compactCompanion))
             }
-        } else if let departingMusic = service.departingMusic {
+        } else if let departingMusic = service.departingMusic ?? service.lingeringMusic {
             Group {
                 if floats { NotchCapsuleMusicStrip(service: service, snapshot: departingMusic) }
                 else { NotchMusicStrip(service: service, snapshot: departingMusic) }
@@ -681,7 +681,11 @@ struct NotchRestingStrip: View {
             }
         }
         .foregroundStyle(.white.opacity(0.9))
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // The strip stays in its band at the top: hover grows the island
+        // around it, and centring it in the taller shape dropped it half
+        // the growth in one frame.
+        .frame(height: geometry.stripHeight)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .contentShape(Rectangle())
         .accessibilityHidden(true)
     }

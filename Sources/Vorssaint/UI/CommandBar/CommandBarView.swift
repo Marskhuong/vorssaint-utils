@@ -1266,31 +1266,24 @@ private struct CommandBarMascot: View {
     @State private var cue: NotchMascotCue?
     @State private var cueID = 0
 
-    private struct Answers: Equatable {
-        let hasResults: Bool
-        let searching: Bool
-    }
-
-    private var answers: Answers {
-        Answers(hasResults: !service.rows.isEmpty, searching: service.awaitsAnswers)
+    private var mood: NotchMascotMood {
+        NotchMascotSupport.commandBarMood(query: service.query, hasResults: !service.rows.isEmpty,
+                                          searching: service.awaitsAnswers)
     }
 
     var body: some View {
-        NotchMascotView(look: NotchMascotSupport.look(),
-                        mood: NotchMascotSupport.commandBarMood(query: service.query, hasResults: answers.hasResults,
-                                                                searching: answers.searching),
-                        size: 22, cue: cue, cueID: cueID)
+        NotchMascotView(look: NotchMascotSupport.look(), mood: mood, size: 22, cue: cue, cueID: cueID)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+            // Its eyes go along what is typed, and come back once typing stops.
             .onChange(of: service.query) { _, query in
-                guard !query.isEmpty else { return }
-                cue = .glance
+                cue = .look(NotchMascotSupport.readingGaze(for: query))
                 cueID += 1
             }
-            // After the glance, so results arriving with a keystroke win.
-            .onChange(of: answers) { old, new in
-                guard NotchMascotSupport.celebrates(query: service.query, from: (old.hasResults, old.searching),
-                                                    to: (new.hasResults, new.searching)) else { return }
+            // After the look, so results arriving with a keystroke win.
+            .onChange(of: mood) { old, new in
+                guard NotchMascotSupport.celebrates(from: old, to: new, query: service.query,
+                                                    hasResults: !service.rows.isEmpty) else { return }
                 cue = .celebrate
                 cueID += 1
             }
