@@ -171,6 +171,7 @@ enum NotchPresentationRefreshContract {
         var showingCommandBar = false
         var commandBarClosings = 0
         func commandBarDidClose() { commandBarClosings += 1 }
+        func flushMascotReaction() {}
         var selectedMetric: Bool?
         var expanded = true
         var peeking = false, dragPlaceholder = false, compactActivityIsVisible = false

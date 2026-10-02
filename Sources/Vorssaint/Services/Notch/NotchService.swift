@@ -217,6 +217,13 @@ final class NotchService: ObservableObject {
     private var mascotVisitsWereOn = false
     /// Whether the companion was on at the last preference sync, nil before the first.
     private var mascotWasEnabled: Bool?
+    /// The side it rested on at the last preference sync, nil before the first.
+    private var mascotSideAtSync: NotchMascotSide?
+    /// The last reaction published for the companion to play where it rests.
+    @Published private(set) var mascotReaction: NotchMascotReactionEvent?
+    /// A reaction waiting for the companion to show, until its deadline.
+    private var pendingMascotReaction: (reaction: NotchMascotReaction, deadline: CFTimeInterval)?
+    private var mascotReactionGate = NotchMascotReactionGate()
     /// The companion is out in the Command Bar's drop, and the island rests without it.
     @Published private(set) var mascotInBar = false
     /// The Command Bar open inside the island, in place of its pages.
@@ -261,6 +268,9 @@ final class NotchService: ObservableObject {
 
     /// The companion rests in the closed island when nothing else is there.
     var mascotAtRest: Bool { NotchMascotSupport.isEnabled() && idleContent == .none && !mascotInBar }
+
+    /// The face it keeps at rest: wide awake while Keep Awake holds the Mac up.
+    var mascotRestingMood: NotchMascotMood { KeepAwakeManager.shared.isActive ? .alert : .idle }
 
     /// Whether the closed island on `geometry` draws the companion: resting,
     /// or strolling through, where its wings fit beside the camera. A capsule
@@ -911,6 +921,7 @@ final class NotchService: ObservableObject {
             + String(AppFeature.fanControl.isAvailable)
             + String(NotchSupport.routesShelf()) + String(NotchSupport.revealsShelfDrag())
             + String(NotchSupport.routesCaptureControls())
+            + String(NotchMascotSupport.isEnabled())
         if signature != settingsSignature {
             settingsSignature = signature
             bindEvents()
@@ -931,6 +942,7 @@ final class NotchService: ObservableObject {
         mascotWasEnabled = mascotEnabled
         refreshPresentation(animated: mascotToggled && !expanded)
         syncMascotVisits()
+        syncMascotSide()
         // Pages read their preferences as they draw, and a change that keeps
         // the island's size publishes nothing else: hiding a control left the
         // open island, and the preview in Settings, as they were.
@@ -1626,6 +1638,10 @@ final class NotchService: ObservableObject {
             inside = windowHost?.containsHover(NSEvent.mouseLocation) == true
             if !inside, !pinned { hover(false) }
         }
+        // The companion in the drop hint watches the file come.
+        if active, dragPlaceholder, NotchMascotSupport.isEnabled() {
+            NotificationCenter.default.post(name: .notchMascotDragMoved, object: nil)
+        }
     }
 
     func presentCaptureControls(_ options: ScreenCaptureSelectionOptions, cancel: @escaping () -> Void) {
@@ -1888,6 +1904,8 @@ final class NotchService: ObservableObject {
             dragPlaceholder = false
             if !optimize { NotchFileToolsService.shared.hideMedia() }
             open(.files)
+            // A little hop for the file it watched come in, once the island rests again.
+            reactMascot(.celebrate, patience: 30)
         }
         return accepted
     }
@@ -2192,6 +2210,7 @@ final class NotchService: ObservableObject {
         defer {
             schedulePointerFollow()
             syncMirrors()
+            flushMascotReaction()
         }
         if hiddenUntilHover || (captureControls != nil && captureSelectionInProgress) {
             finishMusicDeparture()
@@ -2912,6 +2931,8 @@ final class NotchService: ObservableObject {
         observe(distributed, Notification.Name("com.apple.screenIsUnlocked")) { [weak self] in
             // No screen saver outlasts an unlock, whether or not its stop was announced.
             self?.updateSession { $0.locked = false; $0.screenSaverRunning = false }
+            // It slept through the lock and wakes up glad to see you.
+            self?.reactMascot(.wakeUp)
         }
         observe(distributed, Notification.Name("com.apple.screensaver.didstart")) { [weak self] in
             self?.updateSession { $0.screenSaverRunning = true }
@@ -3264,7 +3285,9 @@ final class NotchService: ObservableObject {
                 self?.show(NotchNotice(event: .download,
                     title: FeatureStrings.notchFiles(L10n.shared.language).completed,
                     detail: item.name, symbol: "arrow.down.circle.fill"))
+                self?.reactMascot(.celebrate)
             }
+            NotchDownloadService.shared.onFailure = { [weak self] in self?.reactMascot(.confused) }
         }
         if modules.contains(.agents) {
             // Only what changes the island's size or strip: a turn starting or
@@ -3301,6 +3324,14 @@ final class NotchService: ObservableObject {
                     self?.refreshPresentation()
                 }.store(in: &subscriptions)
         }
+        // The companion is wide awake while Keep Awake holds the Mac up, and
+        // yawns as it lets go. The value it starts with is no news.
+        KeepAwakeManager.shared.$isActive.removeDuplicates().dropFirst().receive(on: DispatchQueue.main)
+            .sink { [weak self] active in
+                guard let self, NotchMascotSupport.isEnabled() else { return }
+                self.objectWillChange.send()
+                if !active { self.reactMascot(.yawn) }
+            }.store(in: &subscriptions)
         if NotchSupport.routes(.agents) {
             AgentUsageService.shared.events.receive(on: DispatchQueue.main)
                 .sink { [weak self] in self?.showAgentEvent($0) }
@@ -3329,7 +3360,8 @@ final class NotchService: ObservableObject {
                                       detail: text.title, symbol: "doc.on.clipboard"))
             }.store(in: &subscriptions)
         }
-        if NotchSupport.routes(.battery) || idleContent == .battery { startPower() }
+        // The companion loves being plugged in, so it listens for the charger too.
+        if NotchSupport.routes(.battery) || idleContent == .battery || NotchMascotSupport.isEnabled() { startPower() }
     }
 
     private func showAgentEvent(_ event: AgentUsageEvent) {
@@ -3350,6 +3382,8 @@ final class NotchService: ObservableObject {
                              detail: [AgentFormat.duration(duration, locale: locale), cost > 0 ? AgentFormat.cost(cost) : ""]
                                 .filter { !$0.isEmpty }.joined(separator: " · "),
                              symbol: provider.symbol, agent: provider))
+            // After the notice, the companion cheers the finished task.
+            reactMascot(.celebrate)
         case .limitWarning(let provider, let limit):
             let share = AgentFormat.percent(remaining ? limit.remainingFraction : limit.usedFraction)
             show(NotchNotice(event: .agents, title: "\(provider.displayName) · \(window(limit))",
@@ -3449,6 +3483,7 @@ final class NotchService: ObservableObject {
         let before = power
         let next = sampler.sample()
         power = next
+        let pluggedIn = !before.externalConnected && next.externalConnected
         let low = (next.chargePercent ?? 100) <= 20 && (before.chargePercent ?? 0) > 20
         guard before.externalConnected != next.externalConnected || low
                 || (before.isCharging && !next.isCharging && next.chargePercent == 100) else { return }
@@ -3459,6 +3494,7 @@ final class NotchService: ObservableObject {
         show(NotchNotice(event: .battery, title: title,
                          detail: next.chargePercent.map { "\($0)%" } ?? "",
                          symbol: next.externalConnected ? "battery.100percent.bolt" : "battery.25percent"))
+        if pluggedIn { reactMascot(.love) }
     }
 
     private func syncVisibleConsumers() {
@@ -3534,6 +3570,11 @@ extension NotchService {
         guard NotchMascotSupport.visits() else { return }
         // Busy, hidden or out of room: it tries again on its next visit.
         guard canHostMascotVisit(), mascotVisit == nil else {
+            scheduleMascotVisit(after: NotchMascotSupport.nextVisitDelay())
+            return
+        }
+        // Low Power Mode keeps it at rest, and a pending visit simply comes later.
+        guard !ProcessInfo.processInfo.isLowPowerModeEnabled else {
             scheduleMascotVisit(after: NotchMascotSupport.nextVisitDelay())
             return
         }
@@ -3625,6 +3666,44 @@ extension NotchService {
         let work = DispatchWorkItem { [weak self] in self?.endMascotVisit() }
         mascotVisitWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + home.duration + 0.1, execute: work)
+    }
+
+    /// The companion moved to the camera's other side in Settings: it goes
+    /// behind the camera and hops out on the new side.
+    private func syncMascotSide() {
+        let side = NotchMascotSupport.side()
+        defer { mascotSideAtSync = side }
+        guard let previous = mascotSideAtSync, previous != side, mascotAtRest, mascotVisit == nil,
+              !geometry.floats, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+              canHostMascotVisit() else { return }
+        let home = NotchMascotVisit(id: UUID(), kind: .home, greeting: .wink, start: CACurrentMediaTime())
+        mutatePresentation { mascotVisit = home }
+        mascotVisitWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.endMascotVisit() }
+        mascotVisitWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + home.duration + 0.1, execute: work)
+    }
+
+    /// Something happened the companion can react to. It plays where it
+    /// rests, now or as soon as it shows again, if it shows soon enough, and
+    /// never twice in a row.
+    func reactMascot(_ reaction: NotchMascotReaction, patience: TimeInterval = NotchMascotReactionGate.patience) {
+        guard NotchMascotSupport.isEnabled() else { return }
+        pendingMascotReaction = (reaction, CACurrentMediaTime() + patience)
+        flushMascotReaction()
+    }
+
+    /// Hands a waiting reaction to the companion once it rests on screen.
+    fileprivate func flushMascotReaction() {
+        guard let pending = pendingMascotReaction else { return }
+        let now = CACurrentMediaTime()
+        guard now <= pending.deadline, NotchMascotSupport.isEnabled() else { pendingMascotReaction = nil; return }
+        guard mascotAtRest, mascotVisit == nil, !expanded, !peeking, notice == nil, !dragPlaceholder,
+              captureControls == nil, compactActivity == nil, !fullscreenCompact, !hiddenUntilHover,
+              mascotShows(on: geometry), panel?.isVisible == true else { return }
+        pendingMascotReaction = nil
+        guard mascotReactionGate.admits(pending.reaction, at: now) else { return }
+        mascotReaction = NotchMascotReactionEvent(id: UUID(), reaction: pending.reaction, start: now)
     }
 
     /// Puts `window` just under the island's, so what grows out of its edge

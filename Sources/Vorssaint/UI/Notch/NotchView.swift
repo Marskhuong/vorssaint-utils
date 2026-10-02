@@ -82,7 +82,19 @@ struct NotchView: View {
         } else if service.expanded {
             if service.showingCommandBar { commandBarPage } else { expanded }
         } else if service.dragPlaceholder {
-            Label(text.dropHint, systemImage: "tray.and.arrow.down")
+            Group {
+                if NotchMascotSupport.isEnabled() {
+                    // The companion stands by the hint and watches the file come.
+                    HStack(spacing: 8) {
+                        NotchMascotView(look: NotchMascotSupport.look(), size: 20, followsDrag: true)
+                            .frame(width: 20, height: 20)
+                            .accessibilityHidden(true)
+                        Text(text.dropHint)
+                    }
+                } else {
+                    Label(text.dropHint, systemImage: "tray.and.arrow.down")
+                }
+            }
                 .font(.system(size: 13, weight: .medium)).foregroundStyle(.white)
                 .frame(maxWidth: .infinity, minHeight: 52)
                 .overlay {
@@ -674,8 +686,10 @@ struct NotchRestingStrip: View {
                                                                      stripHeight: geometry.stripHeight,
                                                                      wing: geometry.restingWingWidth,
                                                                      cameraWidth: geometry.cameraWidth, floats: false,
-                                                                     bodyHeight: geometry.stripBodyHeight),
-                                     rests: service.mascotAtRest, visit: service.mascotVisit)
+                                                                     bodyHeight: geometry.stripBodyHeight,
+                                                                     side: NotchMascotSupport.side()),
+                                     rests: service.mascotAtRest, visit: service.mascotVisit,
+                                     mood: service.mascotRestingMood, reaction: service.mascotReaction)
                     .frame(width: geometry.collapsed.width, height: geometry.stripHeight)
                     .allowsHitTesting(false)
             }

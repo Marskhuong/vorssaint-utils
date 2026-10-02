@@ -14,6 +14,8 @@ enum NotchMascotTests {
         trackContracts(suite)
         strollContracts(suite)
         homecomingContracts(suite)
+        reactionContracts(suite)
+        sideContracts(suite)
         commandBarContracts(suite)
         dropletContracts(suite)
     }
@@ -71,7 +73,7 @@ enum NotchMascotTests {
 
         let keys = [DefaultsKey.notchMascotEnabled, DefaultsKey.notchMascotVisits, DefaultsKey.notchMascotStyle,
                     DefaultsKey.notchMascotShape, DefaultsKey.notchMascotPalette, DefaultsKey.notchCommandBar,
-                    DefaultsKey.notchCommandBarStyle]
+                    DefaultsKey.notchCommandBarStyle, DefaultsKey.notchMascotSide, DefaultsKey.notchMascotVisitFrequency]
         suite.expect(keys.allSatisfy { Defaults.registeredDefaults[$0] != nil && $0.hasPrefix("notch") }
                      && SettingsBackupSupport.exportKeys().isSuperset(of: keys),
                      "every companion preference travels in a settings backup with the island's")
@@ -79,11 +81,28 @@ enum NotchMascotTests {
                      && Set(NotchMascotPalette.allCases.map(\.rawValue)).count == 6
                      && Set(NotchMascotPalette.allCases.map { "\($0.light)" }).count == 6,
                      "four shapes and six distinct colors")
-        suite.expect(NotchMascotSupport.nextVisitDelay(random: 0) == NotchMascotSupport.visitDelay.lowerBound
-                     && NotchMascotSupport.nextVisitDelay(random: 1) == NotchMascotSupport.visitDelay.upperBound
-                     && NotchMascotSupport.nextVisitDelay(random: 7) == NotchMascotSupport.visitDelay.upperBound
-                     && NotchMascotSupport.visitDelay.lowerBound >= 60,
+        let normal = NotchMascotVisitFrequency.normal.delay
+        suite.expect(NotchMascotSupport.nextVisitDelay(.normal, random: 0) == normal.lowerBound
+                     && NotchMascotSupport.nextVisitDelay(.normal, random: 1) == normal.upperBound
+                     && NotchMascotSupport.nextVisitDelay(.normal, random: 7) == normal.upperBound
+                     && NotchMascotVisitFrequency.allCases.allSatisfy { $0.delay.lowerBound >= 60 },
                      "visits come minutes apart, never on a fast beat")
+        suite.expect(NotchMascotVisitFrequency.rare.delay.lowerBound > normal.upperBound
+                     && NotchMascotVisitFrequency.frequent.delay.upperBound < normal.lowerBound,
+                     "rare visits come later than normal ones, frequent ones sooner")
+        suite.expect(NotchMascotSupport.visitFrequency(in: defaults) == .normal && NotchMascotSupport.side(in: defaults) == .left,
+                     "visits come at the normal pace, beside the camera's left, unless chosen otherwise")
+        defaults.set(NotchMascotVisitFrequency.rare.rawValue, forKey: DefaultsKey.notchMascotVisitFrequency)
+        defaults.set(NotchMascotSide.right.rawValue, forKey: DefaultsKey.notchMascotSide)
+        suite.expect(NotchMascotSupport.visitFrequency(in: defaults) == .rare && NotchMascotSupport.side(in: defaults) == .right,
+                     "the pace and the side are read as chosen")
+        let lowPower = NotchMascotSupport.blinkInterval(lowPower: true), awake = NotchMascotSupport.blinkInterval(lowPower: false)
+        suite.expect(lowPower.lowerBound >= awake.lowerBound * 2 && lowPower.upperBound >= awake.upperBound * 2,
+                     "in Low Power Mode it blinks half as often")
+        suite.expect(NotchMascotSupport.blinksBeforeSleep(hour: 23) < NotchMascotSupport.blinksBeforeSleep(hour: 14)
+                     && NotchMascotSupport.blinksBeforeSleep(hour: 3) < NotchMascotSupport.blinksBeforeSleep(hour: 9)
+                     && NotchMascotSupport.blinksBeforeSleep(hour: 6) == NotchMascotSupport.blinksBeforeSleep(hour: 21),
+                     "late at night it grows sleepy sooner")
         suite.expect(NotchMascotSupport.greeting(random: 0) == .happy && NotchMascotSupport.greeting(random: 0.5) == .wink
                      && NotchMascotSupport.greeting(random: 0.99) == .love && NotchMascotSupport.greeting(random: 3) == .love,
                      "a visit says hello happy, with a wink or in love")
@@ -253,6 +272,49 @@ enum NotchMascotTests {
                              "in a capsule it lands where it rests, the drop having risen there")
             }
         }
+    }
+
+    private static func reactionContracts(_ suite: TestSuite) {
+        var gate = NotchMascotReactionGate()
+        suite.expect(gate.admits(.celebrate, at: 100), "the first reaction plays")
+        suite.expect(!gate.admits(.love, at: 100 + NotchMascotReactionGate.spacing / 2),
+                     "a second one right after waits its turn and is let go")
+        suite.expect(gate.admits(.love, at: 100 + NotchMascotReactionGate.spacing + 0.1),
+                     "a different one plays once a moment has passed")
+        let lovedAt = 100 + NotchMascotReactionGate.spacing + 0.1
+        suite.expect(!gate.admits(.love, at: lovedAt + NotchMascotReactionGate.spacing + 1),
+                     "the same one never plays twice in a row")
+        suite.expect(gate.admits(.love, at: lovedAt + NotchMascotReactionGate.repeatInterval + 0.1),
+                     "the same one can come back after a while")
+        suite.expect(NotchMascotReactionGate.patience <= 10 && NotchMascotReactionGate.spacing >= 1,
+                     "a reaction it cannot show soon is dropped, never saved for later")
+        suite.expect(NotchMascotMood.alert.expression.left == .wide && NotchMascotMood.alert.expression.blinks
+                     && NotchMascotMood.alert.expression.gaze == .zero,
+                     "wide awake keeps its eyes open and blinking, looking ahead")
+    }
+
+    private static func sideContracts(_ suite: TestSuite) {
+        let left = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                            floats: false, bodyHeight: 32)
+        let right = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                             floats: false, bodyHeight: 32, side: .right)
+        suite.expect(right.mirrored && abs(right.rest - (268 - left.rest)) < 0.01 && right.hidden == left.hidden
+                     && right.rest - right.size / 2 >= 224 + 4 && right.rest + right.size / 2 <= 268,
+                     "on the right it rests whole inside the right wing, as far from the camera as on the left")
+        let capsule = NotchMascotSupport.track(stripWidth: 76, stripHeight: 24, wing: 0, cameraWidth: 0,
+                                               floats: true, bodyHeight: 20, side: .right)
+        suite.expect(!capsule.mirrored && capsule.rest == 38, "a capsule keeps it in the middle on either side")
+        for kind in [NotchMascotVisit.Kind.lap, .pass, .home] {
+            let plain = NotchMascotMotion.path(for: kind, on: left)
+            let mirrored = NotchMascotMotion.path(for: kind, on: right)
+            suite.expect(mirrored.keyTimes == plain.keyTimes && mirrored.lift == plain.lift
+                         && zip(mirrored.x, plain.x).allSatisfy { abs($0 + $1 - 268) < 0.01 }
+                         && zip(mirrored.gaze, plain.gaze).allSatisfy { abs($0 + $1) < 0.0001 },
+                         "on the right every stroll is the left one in a mirror")
+        }
+        let lap = NotchMascotMotion.path(for: .lap, on: right)
+        suite.expect(abs((lap.x.first ?? 0) - right.rest) < 0.01 && abs((lap.x.last ?? 0) - right.rest) < 0.01,
+                     "on the right a lap leaves its place and comes back to it")
     }
 
     private static func commandBarContracts(_ suite: TestSuite) {

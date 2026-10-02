@@ -183,7 +183,8 @@ struct NotchCapsuleRestingView: View {
                                                                          stripHeight: geometry.stripHeight,
                                                                          wing: 0, cameraWidth: 0, floats: true,
                                                                          bodyHeight: geometry.stripBodyHeight),
-                                         rests: service.mascotAtRest, visit: service.mascotVisit)
+                                         rests: service.mascotAtRest, visit: service.mascotVisit,
+                                         mood: service.mascotRestingMood, reaction: service.mascotReaction)
                         .frame(width: size.width, height: geometry.stripHeight)
                         .allowsHitTesting(false)
                 }

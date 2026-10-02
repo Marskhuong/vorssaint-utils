@@ -40,6 +40,16 @@ struct NotchMascotStrings {
     let searching: String
     let thinking: String
     let confused: String
+    let alert: String
+    /// Which side of the camera it rests on.
+    let side: String
+    let left: String
+    let right: String
+    /// How often it strolls through the island.
+    let frequency: String
+    let rare: String
+    let normal: String
+    let frequent: String
 
     func style(_ style: NotchMascotStyle) -> String {
         style == .robot ? robot : minimal
@@ -82,6 +92,19 @@ struct NotchMascotStrings {
         case .searching: return searching
         case .thinking: return thinking
         case .confused: return confused
+        case .alert: return alert
+        }
+    }
+
+    func side(_ side: NotchMascotSide) -> String {
+        side == .right ? right : left
+    }
+
+    func frequency(_ frequency: NotchMascotVisitFrequency) -> String {
+        switch frequency {
+        case .rare: return rare
+        case .normal: return normal
+        case .frequent: return frequent
         }
     }
 }
@@ -102,7 +125,9 @@ extension FeatureStrings {
             opensAs: "Opens as", droplet: "Drop", openIsland: "Open island",
             preview: "Companion preview", previewHint: "Click to see its faces.",
             happy: "Happy", wink: "Wink", love: "In love", sleepy: "Sleepy", determined: "Determined",
-            surprised: "Surprised", searching: "Searching", thinking: "Thinking", confused: "Confused")
+            surprised: "Surprised", searching: "Searching", thinking: "Thinking", confused: "Confused", alert: "Wide awake",
+            side: "Side of the camera", left: "Left", right: "Right",
+            frequency: "How often", rare: "Rarely", normal: "Sometimes", frequent: "Often")
         case .ptBR: return NotchMascotStrings(
             title: "Companheiro",
             hint: "Um amiguinho que mora na ilha. Descansa ao lado da câmera quando não há mais nada ali e sai do caminho para música, avisos e atividades.",
@@ -116,7 +141,9 @@ extension FeatureStrings {
             opensAs: "Abre como", droplet: "Gota", openIsland: "Ilha aberta",
             preview: "Prévia do companheiro", previewHint: "Clique para ver as expressões.",
             happy: "Feliz", wink: "Piscadinha", love: "Apaixonado", sleepy: "Sonolento", determined: "Determinado",
-            surprised: "Surpreso", searching: "Procurando", thinking: "Pensando", confused: "Confuso")
+            surprised: "Surpreso", searching: "Procurando", thinking: "Pensando", confused: "Confuso", alert: "Bem acordado",
+            side: "Lado da câmera", left: "Esquerda", right: "Direita",
+            frequency: "Frequência", rare: "Rara", normal: "Normal", frequent: "Frequente")
         case .es: return NotchMascotStrings(
             title: "Compañero",
             hint: "Un amiguito que vive en la isla. Descansa junto a la cámara cuando no hay nada más y se aparta para la música, los avisos y las actividades.",
@@ -130,7 +157,9 @@ extension FeatureStrings {
             opensAs: "Se abre como", droplet: "Gota", openIsland: "Isla abierta",
             preview: "Vista previa del compañero", previewHint: "Haz clic para ver sus caras.",
             happy: "Feliz", wink: "Guiño", love: "Enamorado", sleepy: "Somnoliento", determined: "Decidido",
-            surprised: "Sorprendido", searching: "Buscando", thinking: "Pensando", confused: "Confundido")
+            surprised: "Sorprendido", searching: "Buscando", thinking: "Pensando", confused: "Confundido", alert: "Bien despierto",
+            side: "Lado de la cámara", left: "Izquierda", right: "Derecha",
+            frequency: "Frecuencia", rare: "Rara", normal: "Normal", frequent: "Frecuente")
         case .sk: return NotchMascotStrings(
             title: "Spoločník",
             hint: "Malý kamarát, ktorý býva na ostrove. Odpočíva vedľa kamery, keď tam nič iné nie je, a uhne hudbe, upozorneniam a aktivitám.",
@@ -144,7 +173,9 @@ extension FeatureStrings {
             opensAs: "Otvorí sa ako", droplet: "Kvapka", openIsland: "Otvorený ostrov",
             preview: "Ukážka spoločníka", previewHint: "Kliknutím zobrazíte jeho výrazy.",
             happy: "Šťastný", wink: "Žmurkanie", love: "Zamilovaný", sleepy: "Ospalý", determined: "Odhodlaný",
-            surprised: "Prekvapený", searching: "Hľadá", thinking: "Premýšľa", confused: "Zmätený")
+            surprised: "Prekvapený", searching: "Hľadá", thinking: "Premýšľa", confused: "Zmätený", alert: "Čulý",
+            side: "Strana kamery", left: "Vľavo", right: "Vpravo",
+            frequency: "Ako často", rare: "Zriedka", normal: "Občas", frequent: "Často")
         case .de: return NotchMascotStrings(
             title: "Begleiter",
             hint: "Ein kleiner Freund, der in der Insel wohnt. Er ruht neben der Kamera, wenn dort nichts anderes ist, und macht Platz für Musik, Hinweise und Aktivitäten.",
@@ -158,7 +189,9 @@ extension FeatureStrings {
             opensAs: "Öffnet als", droplet: "Tropfen", openIsland: "Geöffnete Insel",
             preview: "Vorschau des Begleiters", previewHint: "Klicken, um seine Gesichter zu sehen.",
             happy: "Fröhlich", wink: "Zwinkernd", love: "Verliebt", sleepy: "Schläfrig", determined: "Entschlossen",
-            surprised: "Überrascht", searching: "Suchend", thinking: "Nachdenklich", confused: "Verwirrt")
+            surprised: "Überrascht", searching: "Suchend", thinking: "Nachdenklich", confused: "Verwirrt", alert: "Hellwach",
+            side: "Seite der Kamera", left: "Links", right: "Rechts",
+            frequency: "Wie oft", rare: "Selten", normal: "Manchmal", frequent: "Oft")
         case .fr: return NotchMascotStrings(
             title: "Compagnon",
             hint: "Un petit ami qui vit dans l’île. Il se repose à côté de la caméra quand rien d’autre n’y est affiché et laisse la place à la musique, aux notifications et aux activités.",
@@ -172,7 +205,9 @@ extension FeatureStrings {
             opensAs: "S’ouvre en", droplet: "Goutte", openIsland: "Île ouverte",
             preview: "Aperçu du compagnon", previewHint: "Cliquez pour voir ses expressions.",
             happy: "Joyeux", wink: "Clin d’œil", love: "Amoureux", sleepy: "Endormi", determined: "Déterminé",
-            surprised: "Surpris", searching: "En recherche", thinking: "Pensif", confused: "Perplexe")
+            surprised: "Surpris", searching: "En recherche", thinking: "Pensif", confused: "Perplexe", alert: "Bien réveillé",
+            side: "Côté de la caméra", left: "Gauche", right: "Droite",
+            frequency: "Fréquence", rare: "Rare", normal: "Normale", frequent: "Fréquente")
         case .it: return NotchMascotStrings(
             title: "Compagno",
             hint: "Un piccolo amico che vive nell’isola. Riposa accanto alla fotocamera quando non c’è nient’altro e si fa da parte per musica, avvisi e attività.",
@@ -186,7 +221,9 @@ extension FeatureStrings {
             opensAs: "Si apre come", droplet: "Goccia", openIsland: "Isola aperta",
             preview: "Anteprima del compagno", previewHint: "Fai clic per vedere le sue espressioni.",
             happy: "Felice", wink: "Occhiolino", love: "Innamorato", sleepy: "Assonnato", determined: "Determinato",
-            surprised: "Sorpreso", searching: "In cerca", thinking: "Pensieroso", confused: "Confuso")
+            surprised: "Sorpreso", searching: "In cerca", thinking: "Pensieroso", confused: "Confuso", alert: "Sveglissimo",
+            side: "Lato della fotocamera", left: "Sinistra", right: "Destra",
+            frequency: "Frequenza", rare: "Rara", normal: "Normale", frequent: "Frequente")
         case .ru: return NotchMascotStrings(
             title: "Компаньон",
             hint: "Маленький друг, который живёт на острове. Он отдыхает рядом с камерой, когда там больше ничего нет, и уступает место музыке, уведомлениям и активностям.",
@@ -200,7 +237,9 @@ extension FeatureStrings {
             opensAs: "Открывается как", droplet: "Капля", openIsland: "Открытый остров",
             preview: "Предпросмотр компаньона", previewHint: "Нажмите, чтобы увидеть его выражения.",
             happy: "Радость", wink: "Подмигивание", love: "Влюблённость", sleepy: "Сонливость", determined: "Решимость",
-            surprised: "Удивление", searching: "Поиск", thinking: "Раздумье", confused: "Растерянность")
+            surprised: "Удивление", searching: "Поиск", thinking: "Раздумье", confused: "Растерянность", alert: "Бодрый",
+            side: "Сторона камеры", left: "Слева", right: "Справа",
+            frequency: "Как часто", rare: "Редко", normal: "Иногда", frequent: "Часто")
         case .tr: return NotchMascotStrings(
             title: "Arkadaş",
             hint: "Adada yaşayan küçük bir dost. Orada başka bir şey olmadığında kameranın yanında dinlenir, müzik, bildirimler ve etkinlikler için kenara çekilir.",
@@ -214,7 +253,9 @@ extension FeatureStrings {
             opensAs: "Açılış biçimi", droplet: "Damla", openIsland: "Açık ada",
             preview: "Arkadaş önizlemesi", previewHint: "Yüz ifadelerini görmek için tıklayın.",
             happy: "Mutlu", wink: "Göz kırpma", love: "Aşık", sleepy: "Uykulu", determined: "Kararlı",
-            surprised: "Şaşırmış", searching: "Arıyor", thinking: "Düşünüyor", confused: "Kafası karışık")
+            surprised: "Şaşırmış", searching: "Arıyor", thinking: "Düşünüyor", confused: "Kafası karışık", alert: "Dinç",
+            side: "Kameranın tarafı", left: "Sol", right: "Sağ",
+            frequency: "Sıklık", rare: "Seyrek", normal: "Normal", frequent: "Sık")
         case .ja: return NotchMascotStrings(
             title: "コンパニオン",
             hint: "アイランドに住む小さな友だちです。ほかに何も表示されていないときはカメラの横で休み、音楽や通知、アクティビティにはその場所をゆずります。",
@@ -228,7 +269,9 @@ extension FeatureStrings {
             opensAs: "開き方", droplet: "しずく", openIsland: "開いたアイランド",
             preview: "コンパニオンのプレビュー", previewHint: "クリックすると表情が見られます。",
             happy: "うれしい", wink: "ウインク", love: "ラブ", sleepy: "ねむい", determined: "やる気",
-            surprised: "びっくり", searching: "さがし中", thinking: "考え中", confused: "こまった")
+            surprised: "びっくり", searching: "さがし中", thinking: "考え中", confused: "こまった", alert: "ぱっちり",
+            side: "カメラのどちら側", left: "左", right: "右",
+            frequency: "頻度", rare: "少なめ", normal: "ふつう", frequent: "多め")
         case .ko: return NotchMascotStrings(
             title: "컴패니언",
             hint: "아일랜드에 사는 작은 친구입니다. 다른 것이 없을 때는 카메라 옆에서 쉬고, 음악, 알림, 활동에는 자리를 비켜 줍니다.",
@@ -242,7 +285,9 @@ extension FeatureStrings {
             opensAs: "열리는 방식", droplet: "물방울", openIsland: "열린 아일랜드",
             preview: "컴패니언 미리 보기", previewHint: "클릭하면 표정을 볼 수 있습니다.",
             happy: "행복", wink: "윙크", love: "사랑", sleepy: "졸림", determined: "결연",
-            surprised: "놀람", searching: "찾는 중", thinking: "생각 중", confused: "혼란")
+            surprised: "놀람", searching: "찾는 중", thinking: "생각 중", confused: "혼란", alert: "말똥말똥",
+            side: "카메라 옆 위치", left: "왼쪽", right: "오른쪽",
+            frequency: "빈도", rare: "가끔", normal: "보통", frequent: "자주")
         case .zhHans: return NotchMascotStrings(
             title: "小伙伴",
             hint: "住在岛里的小朋友。岛上没有其他内容时，它会在摄像头旁休息，并为音乐、通知和活动让出位置。",
@@ -256,7 +301,9 @@ extension FeatureStrings {
             opensAs: "打开方式", droplet: "水滴", openIsland: "展开的岛",
             preview: "小伙伴预览", previewHint: "点击查看它的表情。",
             happy: "开心", wink: "眨眼", love: "心动", sleepy: "困倦", determined: "坚定",
-            surprised: "惊讶", searching: "寻找中", thinking: "思考中", confused: "困惑")
+            surprised: "惊讶", searching: "寻找中", thinking: "思考中", confused: "困惑", alert: "精神饱满",
+            side: "在摄像头哪一侧", left: "左侧", right: "右侧",
+            frequency: "频率", rare: "偶尔", normal: "适中", frequent: "经常")
         case .zhTW: return NotchMascotStrings(
             title: "小夥伴",
             hint: "住在動態島裡的小朋友。島上沒有其他內容時，它會在相機旁休息，並為音樂、通知和活動讓出位置。",
@@ -270,7 +317,9 @@ extension FeatureStrings {
             opensAs: "開啟方式", droplet: "水滴", openIsland: "展開的動態島",
             preview: "小夥伴預覽", previewHint: "按一下即可查看它的表情。",
             happy: "開心", wink: "眨眼", love: "心動", sleepy: "睏倦", determined: "堅定",
-            surprised: "驚訝", searching: "尋找中", thinking: "思考中", confused: "困惑")
+            surprised: "驚訝", searching: "尋找中", thinking: "思考中", confused: "困惑", alert: "精神飽滿",
+            side: "在相機哪一側", left: "左側", right: "右側",
+            frequency: "頻率", rare: "偶爾", normal: "適中", frequent: "經常")
         case .zhHK: return NotchMascotStrings(
             title: "小夥伴",
             hint: "住在動態島裡的小朋友。島上沒有其他內容時，它會在相機旁休息，並為音樂、通知和活動讓出位置。",
@@ -284,7 +333,9 @@ extension FeatureStrings {
             opensAs: "開啟方式", droplet: "水滴", openIsland: "展開的動態島",
             preview: "小夥伴預覽", previewHint: "按一下即可查看它的表情。",
             happy: "開心", wink: "眨眼", love: "心動", sleepy: "睏倦", determined: "堅定",
-            surprised: "驚訝", searching: "尋找中", thinking: "思考中", confused: "困惑")
+            surprised: "驚訝", searching: "尋找中", thinking: "思考中", confused: "困惑", alert: "精神飽滿",
+            side: "在相機哪一側", left: "左側", right: "右側",
+            frequency: "頻率", rare: "偶爾", normal: "適中", frequent: "經常")
         case .uk: return NotchMascotStrings(
             title: "Компаньйон",
             hint: "Маленький друг, який живе в острівці. Він відпочиває біля камери, коли там більше нічого немає, і поступається місцем музиці, сповіщенням і активностям.",
@@ -298,7 +349,9 @@ extension FeatureStrings {
             opensAs: "Відкривається як", droplet: "Крапля", openIsland: "Відкритий острівець",
             preview: "Попередній перегляд компаньйона", previewHint: "Натисніть, щоб побачити його вирази.",
             happy: "Радість", wink: "Підморгування", love: "Закоханість", sleepy: "Сонливість", determined: "Рішучість",
-            surprised: "Здивування", searching: "Пошук", thinking: "Роздуми", confused: "Розгубленість")
+            surprised: "Здивування", searching: "Пошук", thinking: "Роздуми", confused: "Розгубленість", alert: "Бадьорий",
+            side: "Сторона камери", left: "Ліворуч", right: "Праворуч",
+            frequency: "Як часто", rare: "Рідко", normal: "Іноді", frequent: "Часто")
         }
     }
 }

@@ -14,6 +14,8 @@ struct NotchMascotSettingsCard: View {
     @AppStorage(DefaultsKey.notchMascotStyle) private var style = NotchMascotStyle.minimal.rawValue
     @AppStorage(DefaultsKey.notchMascotShape) private var shape = NotchMascotShape.ball.rawValue
     @AppStorage(DefaultsKey.notchMascotPalette) private var palette = NotchMascotPalette.pearl.rawValue
+    @AppStorage(DefaultsKey.notchMascotSide) private var side = NotchMascotSide.left.rawValue
+    @AppStorage(DefaultsKey.notchMascotVisitFrequency) private var frequency = NotchMascotVisitFrequency.normal.rawValue
     @AppStorage(DefaultsKey.notchCommandBar) private var commandBar = true
     @AppStorage(DefaultsKey.notchCommandBarStyle) private var commandBarStyle = NotchCommandBarStyle.droplet.rawValue
     /// The face the preview shows: at rest, or one of the showcase after a click.
@@ -44,6 +46,18 @@ struct NotchMascotSettingsCard: View {
             }
             if enabled {
                 switchRow("sparkles", text.visits, caption: text.visitsHint, isOn: $visits)
+                if visits {
+                    SettingsChoiceRow(symbol: "clock", title: text.frequency, selection: $frequency) {
+                        ForEach(NotchMascotVisitFrequency.allCases) { Text(text.frequency($0)).tag($0.rawValue) }
+                    }
+                    .padding(.leading, settingsRowTextInset)
+                }
+                // A capsule has no camera to rest beside.
+                if NotchSupport.hasNotchedDisplay {
+                    SettingsChoiceRow(symbol: "arrow.left.and.right", title: text.side, selection: $side) {
+                        ForEach(NotchMascotSide.allCases) { Text(text.side($0)).tag($0.rawValue) }
+                    }
+                }
                 SettingsChoiceRow(symbol: "paintpalette", title: text.style, selection: $style) {
                     ForEach(NotchMascotStyle.allCases) { Text(text.style($0)).tag($0.rawValue) }
                 }

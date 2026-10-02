@@ -882,6 +882,8 @@ enum DefaultsKey {
     static let notchMascotStyle = "notchMascotStyle" // NotchMascotStyle.rawValue
     static let notchMascotShape = "notchMascotShape" // NotchMascotShape.rawValue
     static let notchMascotPalette = "notchMascotPalette" // NotchMascotPalette.rawValue
+    static let notchMascotSide = "notchMascotSide" // NotchMascotSide.rawValue, beside the camera
+    static let notchMascotVisitFrequency = "notchMascotVisitFrequency" // NotchMascotVisitFrequency.rawValue
     static let notchCommandBar = "notchCommandBar" // the Command Bar comes out of the island
     static let notchCommandBarStyle = "notchCommandBarStyle" // NotchCommandBarStyle.rawValue
     // Legacy inverse preference; the explicit visibility switch supersedes it.
@@ -1441,6 +1443,8 @@ enum Defaults {
         DefaultsKey.notchMascotStyle: NotchMascotStyle.minimal.rawValue,
         DefaultsKey.notchMascotShape: NotchMascotShape.ball.rawValue,
         DefaultsKey.notchMascotPalette: NotchMascotPalette.pearl.rawValue,
+        DefaultsKey.notchMascotSide: NotchMascotSide.left.rawValue,
+        DefaultsKey.notchMascotVisitFrequency: NotchMascotVisitFrequency.normal.rawValue,
         DefaultsKey.notchCommandBar: true,
         DefaultsKey.notchCommandBarStyle: NotchCommandBarStyle.droplet.rawValue,
         DefaultsKey.notchHideInCaptures: false,

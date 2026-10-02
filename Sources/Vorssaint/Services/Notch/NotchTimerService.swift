@@ -73,6 +73,7 @@ final class NotchTimerService: ObservableObject {
         NotchService.shared.show(NotchNotice(event: .timer,
             title: session.cycleFinished ? text.pomodoroFinished : text.finished,
             detail: text.phase(session.phase), symbol: "timer"))
+        NotchService.shared.reactMascot(.surprised)
         alert.start(enabled: NotchTimerSupport.isSoundEnabled())
     }
 
