@@ -1649,12 +1649,17 @@ final class NotchService: ObservableObject {
                 self?.updateCaptureControlsClickThrough()
                 self?.scheduleCaptureControlsCollapse()
             }
+        // A Command Bar open in the island closes with it, or it would keep
+        // the island's keys while the controls are up.
+        let closesCommandBar = showingCommandBar
+        showingCommandBar = false
         expanded = false
         showingSections = false
         peeking = false
         notice = nil
         noticeExpanded = false
         hoverWork?.cancel()
+        if closesCommandBar { commandBarDidClose() }
         removeEventMonitors()
         panel?.acceptsKeyFocus = true
         panel?.level = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()) + 1)
