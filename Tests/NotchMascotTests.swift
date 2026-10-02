@@ -60,9 +60,9 @@ enum NotchMascotTests {
                      "without the island there is no companion and no bar from it")
         defaults.set(true, forKey: DefaultsKey.notchEnabled)
         defaults.set(NotchMascotStyle.robot.rawValue, forKey: DefaultsKey.notchMascotStyle)
-        defaults.set(NotchMascotShape.drop.rawValue, forKey: DefaultsKey.notchMascotShape)
+        defaults.set(NotchMascotShape.pill.rawValue, forKey: DefaultsKey.notchMascotShape)
         defaults.set(NotchMascotPalette.lilac.rawValue, forKey: DefaultsKey.notchMascotPalette)
-        suite.expect(NotchMascotSupport.look(in: defaults) == NotchMascotLook(style: .robot, shape: .drop, palette: .lilac),
+        suite.expect(NotchMascotSupport.look(in: defaults) == NotchMascotLook(style: .robot, shape: .pill, palette: .lilac),
                      "style, shape and color are read as chosen")
         defaults.set("cube", forKey: DefaultsKey.notchMascotShape)
         defaults.set("neon", forKey: DefaultsKey.notchMascotPalette)
@@ -75,10 +75,10 @@ enum NotchMascotTests {
         suite.expect(keys.allSatisfy { Defaults.registeredDefaults[$0] != nil && $0.hasPrefix("notch") }
                      && SettingsBackupSupport.exportKeys().isSuperset(of: keys),
                      "every companion preference travels in a settings backup with the island's")
-        suite.expect(Set(NotchMascotShape.allCases.map(\.rawValue)).count == 5
+        suite.expect(Set(NotchMascotShape.allCases.map(\.rawValue)).count == 4
                      && Set(NotchMascotPalette.allCases.map(\.rawValue)).count == 6
                      && Set(NotchMascotPalette.allCases.map { "\($0.light)" }).count == 6,
-                     "five shapes and six distinct colors")
+                     "four shapes and six distinct colors")
         suite.expect(NotchMascotSupport.nextVisitDelay(random: 0) == NotchMascotSupport.visitDelay.lowerBound
                      && NotchMascotSupport.nextVisitDelay(random: 1) == NotchMascotSupport.visitDelay.upperBound
                      && NotchMascotSupport.nextVisitDelay(random: 7) == NotchMascotSupport.visitDelay.upperBound

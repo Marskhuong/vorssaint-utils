@@ -18,7 +18,7 @@ enum NotchMascotStyle: String, CaseIterable, Identifiable {
 }
 
 enum NotchMascotShape: String, CaseIterable, Identifiable {
-    case ball, egg, squircle, drop, pill
+    case ball, egg, squircle, pill
 
     var id: String { rawValue }
 }
@@ -181,11 +181,6 @@ extension NotchMascotLook {
                                          eyeSize: CGSize(width: 0.10, height: 0.20),
                                          shineCenter: CGPoint(x: 0.24, y: 0.28), shineRadii: CGSize(width: 0.08, height: 0.05),
                                          shineAngle: -0.55)
-        case .drop:
-            return NotchMascotFaceLayout(leftEye: CGPoint(x: 0.375, y: 0.62), rightEye: CGPoint(x: 0.625, y: 0.62),
-                                         eyeSize: CGSize(width: 0.095, height: 0.18),
-                                         shineCenter: CGPoint(x: 0.33, y: 0.45), shineRadii: CGSize(width: 0.07, height: 0.05),
-                                         shineAngle: -0.7)
         case .pill:
             return NotchMascotFaceLayout(leftEye: CGPoint(x: 0.37, y: 0.57), rightEye: CGPoint(x: 0.63, y: 0.57),
                                          eyeSize: CGSize(width: 0.09, height: 0.19),
@@ -225,14 +220,6 @@ enum NotchMascotGeometry {
                 let y = 0.55 + 0.40 * (sine < 0 ? -1 : 1) * pow(abs(sine), exponent)
                 if index == 0 { path.move(to: point(x, y)) } else { path.addLine(to: point(x, y)) }
             }
-            path.closeSubpath()
-        case .drop:
-            path.move(to: point(0.53, 0.085))
-            path.addCurve(to: point(0.84, 0.62), control1: point(0.60, 0.20), control2: point(0.84, 0.40))
-            path.addCurve(to: point(0.5, 0.96), control1: point(0.84, 0.81), control2: point(0.69, 0.96))
-            path.addCurve(to: point(0.16, 0.62), control1: point(0.31, 0.96), control2: point(0.16, 0.81))
-            path.addCurve(to: point(0.47, 0.085), control1: point(0.16, 0.40), control2: point(0.40, 0.20))
-            path.addCurve(to: point(0.53, 0.085), control1: point(0.49, 0.06), control2: point(0.51, 0.06))
             path.closeSubpath()
         case .pill:
             path.addRoundedRect(in: CGRect(x: 0.05 * size, y: 0.28 * size, width: 0.90 * size, height: 0.60 * size),

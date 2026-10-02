@@ -15,7 +15,6 @@ struct NotchMascotStrings {
     let ball: String
     let egg: String
     let squircle: String
-    let drop: String
     let pill: String
     let color: String
     let pearl: String
@@ -51,7 +50,6 @@ struct NotchMascotStrings {
         case .ball: return ball
         case .egg: return egg
         case .squircle: return squircle
-        case .drop: return drop
         case .pill: return pill
         }
     }
@@ -97,7 +95,7 @@ extension FeatureStrings {
             visits: "Appear now and then",
             visitsHint: "Every few minutes it passes through the island with a short animation.",
             style: "Style", minimal: "Minimal", robot: "Robot",
-            shape: "Shape", ball: "Ball", egg: "Egg", squircle: "Rounded square", drop: "Drop", pill: "Pill",
+            shape: "Shape", ball: "Ball", egg: "Egg", squircle: "Rounded square", pill: "Pill",
             color: "Color", pearl: "Pearl", mint: "Mint", peach: "Peach", lilac: "Lilac", lemon: "Lemon", rose: "Rose",
             commandBar: "Command Bar in the island",
             commandBarHint: "With the shortcut, the Command Bar comes out of the island with the companion as its face. It reacts while you search.",
@@ -111,7 +109,7 @@ extension FeatureStrings {
             visits: "Aparecer de vez em quando",
             visitsHint: "A cada poucos minutos ele passa pela ilha com uma animação curta.",
             style: "Estilo", minimal: "Minimalista", robot: "Robô",
-            shape: "Forma", ball: "Bolinha", egg: "Ovo", squircle: "Quadrado arredondado", drop: "Gota", pill: "Pílula",
+            shape: "Forma", ball: "Bolinha", egg: "Ovo", squircle: "Quadrado arredondado", pill: "Pílula",
             color: "Cor", pearl: "Pérola", mint: "Menta", peach: "Pêssego", lilac: "Lilás", lemon: "Limão", rose: "Rosa",
             commandBar: "Barra de comando na ilha",
             commandBarHint: "Com o atalho, a Barra de comando sai da ilha com o companheiro como ícone. Ele reage enquanto você pesquisa.",
@@ -125,7 +123,7 @@ extension FeatureStrings {
             visits: "Aparecer de vez en cuando",
             visitsHint: "Cada pocos minutos pasa por la isla con una animación corta.",
             style: "Estilo", minimal: "Minimalista", robot: "Robot",
-            shape: "Forma", ball: "Bolita", egg: "Huevo", squircle: "Cuadrado redondeado", drop: "Gota", pill: "Píldora",
+            shape: "Forma", ball: "Bolita", egg: "Huevo", squircle: "Cuadrado redondeado", pill: "Píldora",
             color: "Color", pearl: "Perla", mint: "Menta", peach: "Melocotón", lilac: "Lila", lemon: "Limón", rose: "Rosa",
             commandBar: "Barra de comandos en la isla",
             commandBarHint: "Con el atajo, la Barra de comandos sale de la isla con el compañero como icono. Reacciona mientras buscas.",
@@ -139,7 +137,7 @@ extension FeatureStrings {
             visits: "Občas sa ukázať",
             visitsHint: "Každých pár minút prejde ostrovom s krátkou animáciou.",
             style: "Štýl", minimal: "Minimalistický", robot: "Robot",
-            shape: "Tvar", ball: "Guľôčka", egg: "Vajíčko", squircle: "Zaoblený štvorec", drop: "Kvapka", pill: "Pilulka",
+            shape: "Tvar", ball: "Guľôčka", egg: "Vajíčko", squircle: "Zaoblený štvorec", pill: "Pilulka",
             color: "Farba", pearl: "Perleťová", mint: "Mätová", peach: "Broskyňová", lilac: "Orgovánová", lemon: "Citrónová", rose: "Ružová",
             commandBar: "Príkazová lišta na ostrove",
             commandBarHint: "Po stlačení skratky vyjde príkazová lišta z ostrova so spoločníkom ako tvárou. Reaguje, kým hľadáte.",
@@ -153,7 +151,7 @@ extension FeatureStrings {
             visits: "Ab und zu vorbeischauen",
             visitsHint: "Alle paar Minuten läuft er mit einer kurzen Animation durch die Insel.",
             style: "Stil", minimal: "Minimal", robot: "Roboter",
-            shape: "Form", ball: "Kugel", egg: "Ei", squircle: "Abgerundetes Quadrat", drop: "Tropfen", pill: "Pille",
+            shape: "Form", ball: "Kugel", egg: "Ei", squircle: "Abgerundetes Quadrat", pill: "Pille",
             color: "Farbe", pearl: "Perle", mint: "Minze", peach: "Pfirsich", lilac: "Flieder", lemon: "Zitrone", rose: "Rosa",
             commandBar: "Befehlsleiste in der Insel",
             commandBarHint: "Mit dem Kurzbefehl kommt die Befehlsleiste aus der Insel, mit dem Begleiter als Gesicht. Er reagiert, während du suchst.",
@@ -167,7 +165,7 @@ extension FeatureStrings {
             visits: "Passer de temps en temps",
             visitsHint: "Toutes les quelques minutes, il traverse l’île avec une courte animation.",
             style: "Style", minimal: "Minimaliste", robot: "Robot",
-            shape: "Forme", ball: "Boule", egg: "Œuf", squircle: "Carré arrondi", drop: "Goutte", pill: "Pilule",
+            shape: "Forme", ball: "Boule", egg: "Œuf", squircle: "Carré arrondi", pill: "Pilule",
             color: "Couleur", pearl: "Perle", mint: "Menthe", peach: "Pêche", lilac: "Lilas", lemon: "Citron", rose: "Rose",
             commandBar: "Barre de commande dans l’île",
             commandBarHint: "Avec le raccourci, la Barre de commande sort de l’île avec le compagnon comme visage. Il réagit pendant que vous cherchez.",
@@ -181,7 +179,7 @@ extension FeatureStrings {
             visits: "Comparire ogni tanto",
             visitsHint: "Ogni pochi minuti attraversa l’isola con una breve animazione.",
             style: "Stile", minimal: "Minimale", robot: "Robot",
-            shape: "Forma", ball: "Pallina", egg: "Uovo", squircle: "Quadrato arrotondato", drop: "Goccia", pill: "Pillola",
+            shape: "Forma", ball: "Pallina", egg: "Uovo", squircle: "Quadrato arrotondato", pill: "Pillola",
             color: "Colore", pearl: "Perla", mint: "Menta", peach: "Pesca", lilac: "Lilla", lemon: "Limone", rose: "Rosa",
             commandBar: "Barra dei comandi nell’isola",
             commandBarHint: "Con la scorciatoia, la Barra dei comandi esce dall’isola con il compagno come volto. Reagisce mentre cerchi.",
@@ -195,7 +193,7 @@ extension FeatureStrings {
             visits: "Появляться время от времени",
             visitsHint: "Раз в несколько минут он пробегает по острову с короткой анимацией.",
             style: "Стиль", minimal: "Минимализм", robot: "Робот",
-            shape: "Форма", ball: "Шарик", egg: "Яйцо", squircle: "Скруглённый квадрат", drop: "Капля", pill: "Пилюля",
+            shape: "Форма", ball: "Шарик", egg: "Яйцо", squircle: "Скруглённый квадрат", pill: "Пилюля",
             color: "Цвет", pearl: "Жемчуг", mint: "Мята", peach: "Персик", lilac: "Сирень", lemon: "Лимон", rose: "Роза",
             commandBar: "Командная панель на острове",
             commandBarHint: "По сочетанию клавиш Командная панель выходит из острова, а компаньон становится её лицом. Он реагирует, пока вы ищете.",
@@ -209,7 +207,7 @@ extension FeatureStrings {
             visits: "Arada bir görün",
             visitsHint: "Birkaç dakikada bir kısa bir animasyonla adadan geçer.",
             style: "Stil", minimal: "Sade", robot: "Robot",
-            shape: "Şekil", ball: "Top", egg: "Yumurta", squircle: "Yuvarlak kare", drop: "Damla", pill: "Hap",
+            shape: "Şekil", ball: "Top", egg: "Yumurta", squircle: "Yuvarlak kare", pill: "Hap",
             color: "Renk", pearl: "İnci", mint: "Nane", peach: "Şeftali", lilac: "Leylak", lemon: "Limon", rose: "Gül",
             commandBar: "Komut çubuğu adada",
             commandBarHint: "Kısayolla Komut çubuğu adadan çıkar ve arkadaş onun yüzü olur. Siz ararken tepki verir.",
@@ -223,7 +221,7 @@ extension FeatureStrings {
             visits: "ときどき現れる",
             visitsHint: "数分ごとに、短いアニメーションでアイランドを通り抜けます。",
             style: "スタイル", minimal: "ミニマル", robot: "ロボット",
-            shape: "形", ball: "まる", egg: "たまご", squircle: "角丸の四角", drop: "しずく", pill: "カプセル",
+            shape: "形", ball: "まる", egg: "たまご", squircle: "角丸の四角", pill: "カプセル",
             color: "色", pearl: "パール", mint: "ミント", peach: "ピーチ", lilac: "ライラック", lemon: "レモン", rose: "ローズ",
             commandBar: "アイランドのコマンドバー",
             commandBarHint: "ショートカットでコマンドバーがアイランドから現れ、コンパニオンがその顔になります。検索中は反応します。",
@@ -237,7 +235,7 @@ extension FeatureStrings {
             visits: "가끔 나타나기",
             visitsHint: "몇 분마다 짧은 애니메이션으로 아일랜드를 지나갑니다.",
             style: "스타일", minimal: "미니멀", robot: "로봇",
-            shape: "모양", ball: "공", egg: "달걀", squircle: "둥근 사각형", drop: "물방울", pill: "알약",
+            shape: "모양", ball: "공", egg: "달걀", squircle: "둥근 사각형", pill: "알약",
             color: "색상", pearl: "펄", mint: "민트", peach: "피치", lilac: "라일락", lemon: "레몬", rose: "로즈",
             commandBar: "아일랜드의 명령 막대",
             commandBarHint: "단축키를 누르면 명령 막대가 아일랜드에서 나오고 컴패니언이 그 얼굴이 됩니다. 검색하는 동안 반응합니다.",
@@ -251,7 +249,7 @@ extension FeatureStrings {
             visits: "偶尔出现",
             visitsHint: "每隔几分钟，它会以简短的动画从岛上经过。",
             style: "风格", minimal: "极简", robot: "机器人",
-            shape: "形状", ball: "圆球", egg: "鸡蛋", squircle: "圆角方形", drop: "水滴", pill: "药丸",
+            shape: "形状", ball: "圆球", egg: "鸡蛋", squircle: "圆角方形", pill: "药丸",
             color: "颜色", pearl: "珍珠", mint: "薄荷", peach: "蜜桃", lilac: "丁香", lemon: "柠檬", rose: "玫瑰",
             commandBar: "在岛中使用命令栏",
             commandBarHint: "按下快捷键，命令栏会从岛中出现，小伙伴就是它的脸。你搜索时它会做出反应。",
@@ -265,7 +263,7 @@ extension FeatureStrings {
             visits: "偶爾出現",
             visitsHint: "每隔幾分鐘，它會以簡短的動畫從動態島經過。",
             style: "風格", minimal: "極簡", robot: "機器人",
-            shape: "形狀", ball: "圓球", egg: "雞蛋", squircle: "圓角方形", drop: "水滴", pill: "藥丸",
+            shape: "形狀", ball: "圓球", egg: "雞蛋", squircle: "圓角方形", pill: "藥丸",
             color: "顏色", pearl: "珍珠", mint: "薄荷", peach: "蜜桃", lilac: "丁香", lemon: "檸檬", rose: "玫瑰",
             commandBar: "在動態島中使用指令列",
             commandBarHint: "按下快速鍵，指令列會從動態島出現，小夥伴就是它的臉。你搜尋時它會做出反應。",
@@ -279,7 +277,7 @@ extension FeatureStrings {
             visits: "間中出現",
             visitsHint: "每隔幾分鐘，它會以簡短的動畫從動態島經過。",
             style: "風格", minimal: "極簡", robot: "機械人",
-            shape: "形狀", ball: "圓球", egg: "雞蛋", squircle: "圓角方形", drop: "水滴", pill: "藥丸",
+            shape: "形狀", ball: "圓球", egg: "雞蛋", squircle: "圓角方形", pill: "藥丸",
             color: "顏色", pearl: "珍珠", mint: "薄荷", peach: "蜜桃", lilac: "丁香", lemon: "檸檬", rose: "玫瑰",
             commandBar: "在動態島中使用指令列",
             commandBarHint: "按下快捷鍵，指令列會從動態島出現，小夥伴就是它的臉。你搜尋時它會作出反應。",
@@ -293,7 +291,7 @@ extension FeatureStrings {
             visits: "З’являтися час від часу",
             visitsHint: "Раз на кілька хвилин він пробігає острівцем із короткою анімацією.",
             style: "Стиль", minimal: "Мінімалізм", robot: "Робот",
-            shape: "Форма", ball: "Кулька", egg: "Яйце", squircle: "Заокруглений квадрат", drop: "Крапля", pill: "Пігулка",
+            shape: "Форма", ball: "Кулька", egg: "Яйце", squircle: "Заокруглений квадрат", pill: "Пігулка",
             color: "Колір", pearl: "Перлина", mint: "М’ята", peach: "Персик", lilac: "Бузок", lemon: "Лимон", rose: "Троянда",
             commandBar: "Панель команд в острівці",
             commandBarHint: "За поєднанням клавіш Панель команд виходить з острівця, а компаньйон стає її обличчям. Він реагує, поки ви шукаєте.",
