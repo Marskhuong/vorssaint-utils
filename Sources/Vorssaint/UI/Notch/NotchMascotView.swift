@@ -8,6 +8,9 @@ import SwiftUI
 extension Notification.Name {
     /// A file is being dragged toward the island while it shows where to drop it.
     static let notchMascotDragMoved = Notification.Name("NotchMascotDragMoved")
+    /// The pointer moved over the open island, or left it.
+    static let notchMascotPointerMoved = Notification.Name("NotchMascotPointerMoved")
+    static let notchMascotPointerLeft = Notification.Name("NotchMascotPointerLeft")
 }
 
 /// A one-off motion the companion plays over its face.
@@ -755,6 +758,7 @@ final class NotchMascotHostView: NSView {
     deinit {
         if let visibilityObserver { NotificationCenter.default.removeObserver(visibilityObserver) }
         if let dragObserver { NotificationCenter.default.removeObserver(dragObserver) }
+        islandObservers.forEach(NotificationCenter.default.removeObserver)
         cameoWork?.cancel()
     }
 
@@ -774,6 +778,32 @@ final class NotchMascotHostView: NSView {
 
     private func followDrag() {
         guard let window else { return }
+        let point = convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
+        mascot.attend(to: NotchMascotSupport.pointerGaze(from: mascot.root.position, to: point, size: mascot.size))
+    }
+
+    /// Beside the camera in the open island, its eyes follow the pointer
+    /// anywhere over the island, not only over the row it stands in, and the
+    /// pointer coming back wakes it.
+    var followsIsland = false {
+        didSet {
+            guard followsIsland != oldValue else { return }
+            islandObservers.forEach(NotificationCenter.default.removeObserver)
+            islandObservers = !followsIsland ? [] : [
+                NotificationCenter.default.addObserver(forName: .notchMascotPointerMoved, object: nil, queue: .main) {
+                    [weak self] _ in self?.followIslandPointer()
+                },
+                NotificationCenter.default.addObserver(forName: .notchMascotPointerLeft, object: nil, queue: .main) {
+                    [weak self] _ in self?.mascot.lookAhead(after: 0.25)
+                },
+            ]
+        }
+    }
+    private var islandObservers: [NSObjectProtocol] = []
+
+    private func followIslandPointer() {
+        guard followsPointer, !mascot.isVisiting, let window else { return }
+        mascot.wake(animated: true)
         let point = convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
         mascot.attend(to: NotchMascotSupport.pointerGaze(from: mascot.root.position, to: point, size: mascot.size))
     }
@@ -1015,6 +1045,8 @@ struct NotchMascotTrackView: NSViewRepresentable {
     /// Switched off, the Settings preview shows it asleep: eyes shut, no
     /// blinking, and no eyes for the pointer.
     var awake = true
+    /// Its eyes follow the pointer over the whole open island.
+    var followsIsland = false
 
     func makeNSView(context: Context) -> NotchMascotHostView {
         NotchMascotHostView(frame: CGRect(x: 0, y: 0, width: track.width, height: track.height))
@@ -1035,6 +1067,7 @@ struct NotchMascotTrackView: NSViewRepresentable {
         }
         view.place(at: CGPoint(x: x, y: track.baseline), visible: visible)
         view.followsPointer = rests && awake
+        view.followsIsland = followsIsland && rests && awake
         view.playVisit(visit, path: NotchMascotMotion.path(for: visit?.kind ?? .pass, on: track),
                        baseline: track.baseline, stand: CGPoint(x: track.rest, y: track.baseline),
                        lift: track.hop(0.22))

@@ -94,7 +94,21 @@ struct NotchView: View {
                 NotchCaptureControlsView(options: options, service: service, layout: service.captureControlsLayout)
             }
         } else if service.expanded {
-            if service.showingCommandBar { commandBarPage } else { expanded.overlay(alignment: .top) { residentMascot } }
+            if service.showingCommandBar {
+                commandBarPage
+            } else {
+                expanded
+                    // The companion beside the camera watches the pointer go
+                    // over the island.
+                    .onContinuousHover { phase in
+                        guard service.mascotResidentShows else { return }
+                        switch phase {
+                        case .active: NotificationCenter.default.post(name: .notchMascotPointerMoved, object: nil)
+                        case .ended: NotificationCenter.default.post(name: .notchMascotPointerLeft, object: nil)
+                        }
+                    }
+                    .overlay(alignment: .top) { residentMascot }
+            }
         } else if service.dragPlaceholder {
             Group {
                 if service.mascotOn {
@@ -247,7 +261,7 @@ struct NotchView: View {
         if service.mascotResidentShows {
             let track = service.mascotResidentTrack(surfaceWidth: service.expandedSize.width)
             NotchMascotTrackView(look: NotchMascotSupport.look(), track: track, rests: true, visit: nil,
-                                 mood: service.mascotRestingMood, reaction: service.mascotReaction)
+                                 mood: service.mascotRestingMood, reaction: service.mascotReaction, followsIsland: true)
                 .frame(width: track.width, height: track.height)
                 .allowsHitTesting(false)
                 .transition(.opacity)
