@@ -148,6 +148,9 @@ final class SettingsRouter: ObservableObject {
     /// One-shot hint for the Dynamic Island page, so a section of the island
     /// can open its own options. Consumed and cleared on arrival.
     @Published var notchModule: NotchModule?
+    /// One-shot hint for the Dynamic Island page to show the companion's tab,
+    /// where its settings live. Consumed and cleared on arrival.
+    @Published var notchCompanion = false
 
     private var history = [HistoryEntry(destination: FeatureSettingsDestination(.general),
                                         sidebarFeature: nil)]
@@ -160,6 +163,13 @@ final class SettingsRouter: ObservableObject {
     /// history entry, for a fallback when the visited tool went away.
     func request(_ destination: FeatureSettingsDestination, targetFeature: AppFeature? = nil,
                  sidebarFeature: AppFeature? = nil, replacingVisit: Bool = false) {
+        // The companion's settings are a tab of the Dynamic Island page.
+        if destination.page == .notchMascot {
+            notchCompanion = true
+            request(FeatureSettingsDestination(.notch), targetFeature: targetFeature,
+                    sidebarFeature: sidebarFeature, replacingVisit: replacingVisit)
+            return
+        }
         let requestID = UUID()
         let samePage = page == destination.page
         page = destination.page

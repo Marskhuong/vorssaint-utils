@@ -130,9 +130,12 @@ struct NotchSettings: View {
                     PermissionRow(kind: .accessibility)
                 }
             }
-            NotchSettingsTabRow(tab: $tab, language: l10n.language, canOpen: enabled) { NotchService.shared.open() }
+            NotchSettingsTabRow(tab: $tab, language: l10n.language, showsCompanion: features.isAvailable(.notchMascot),
+                                canOpen: enabled) { NotchService.shared.open() }
             if tab == .content {
                 GeometryReader { proxy in contentEditor(in: proxy.size) }
+            } else if tab == .companion {
+                NotchMascotSettings(embedded: true)
             } else {
                 pageScroll
             }
@@ -143,6 +146,19 @@ struct NotchSettings: View {
         .onChange(of: tab) { _, _ in draggingModule = nil; draggingControl = nil }
         .onAppear(perform: consumeModuleHint)
         .onChange(of: router.notchModule) { _, _ in consumeModuleHint() }
+        .onAppear(perform: consumeCompanionHint)
+        .onChange(of: router.notchCompanion) { _, _ in consumeCompanionHint() }
+        // Uninstalled while its tab shows, the companion leaves the page to the layout.
+        .onChange(of: features.isAvailable(.notchMascot)) { _, installed in
+            if !installed, tab == .companion { tab = .layout }
+        }
+    }
+
+    /// The companion's own settings were asked for; the hint is one-shot.
+    private func consumeCompanionHint() {
+        guard router.notchCompanion else { return }
+        router.notchCompanion = false
+        if features.isAvailable(.notchMascot) { tab = .companion }
     }
 
     private var pageScroll: some View {
@@ -153,6 +169,7 @@ struct NotchSettings: View {
                 case .content: EmptyView()
                 case .activity: activityPage
                 case .behavior: behaviorPage
+                case .companion: EmptyView()
                 }
             }.padding(.bottom, 22)
         }.id(tab)

@@ -92,8 +92,9 @@ enum SettingsDirectory {
             default: return item.destination.page == .monitor
             }
         }
-        // The companion lives in the island, so its page follows the island's.
-        let islandPages: Set<SettingsSidebarItem.ID> = [.page(.notch), .page(.notchMascot)]
+        // The companion lives in the island, and its settings in a tab of the
+        // island's page rather than a row of their own.
+        let islandPages: Set<SettingsSidebarItem.ID> = [.page(.notch)]
         let island = grouped.first(where: { $0.id == 4 })?.items.filter {
             islandPages.contains($0.id)
         } ?? []
@@ -113,7 +114,9 @@ enum SettingsDirectory {
         ]
         let utilities = grouped.filter { $0.id == 4 }.map { section in
             SettingsSidebarSection(id: section.id, title: section.title,
-                                   items: section.items.filter { !islandPages.contains($0.id) })
+                                   items: section.items.filter {
+                                       !islandPages.contains($0.id) && $0.id != .page(.notchMascot)
+                                   })
         }
         let remaining = grouped.filter { $0.id != 0 && $0.id != 4 }
         return [featured[0]] + utilities + featured.dropFirst().filter { !$0.items.isEmpty } + remaining

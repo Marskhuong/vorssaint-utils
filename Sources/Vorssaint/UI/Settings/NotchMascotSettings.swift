@@ -7,6 +7,8 @@ import SwiftUI
 /// bigger than life, and acts out what it does on request; below are how it
 /// looks, how it behaves and whether the Command Bar comes out with it.
 struct NotchMascotSettings: View {
+    /// Shown as a tab of the Dynamic Island page, which keeps its own margins.
+    var embedded = false
     @ObservedObject private var l10n = L10n.shared
     /// Redraws when the island or the Command Bar is installed or removed.
     @ObservedObject private var features = FeatureRuntime.shared
@@ -57,7 +59,7 @@ struct NotchMascotSettings: View {
                 behavior
                 commandBarCard
             }
-            .padding(22)
+            .padding(embedded ? [.bottom] : .all, 22)
         }
     }
 
