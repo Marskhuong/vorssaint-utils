@@ -131,6 +131,17 @@ final class NotchWindowHost: NSObject, CAAnimationDelegate {
         canvas.setOutline(enabled: enabled, color: color)
     }
 
+    /// The companion stands in the window's own layer while the island opens
+    /// or closes around it, sliding from `from` to `to`, its centre's offset
+    /// from the camera's, with its centre `baseline` below the top.
+    func bridgeMascot(look: NotchMascotLook, size: CGFloat, mood: NotchMascotMood, from: CGFloat, to: CGFloat,
+                      baseline: CGFloat, duration: CFTimeInterval) {
+        canvas.showMascotBridge(look: look, size: size, mood: mood, from: from, to: to, baseline: baseline,
+                                duration: duration)
+    }
+
+    func endMascotBridge() { canvas.hideMascotBridge() }
+
     func hide(animated: Bool, transitionContent: NotchContentTransition = .dismiss) {
         guard isPresented else { return }
         let animate = animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -980,6 +991,13 @@ private final class NotchCanvas: NSView {
     private var outlineEnabled = false
     private var outlineColor = NSColor.white
     private let contentVisibility = CALayer()
+    /// The companion beside the camera while the island opens or closes
+    /// around it, kept out of the content, which fades, blurs and grows as
+    /// it arrives, so it stays sharp in its place throughout.
+    private let mascotBridge = NotchMascotHostView(frame: .zero)
+    /// Where it stands: its centre's offset from the display's centre, its
+    /// centre's height from the top, and its size.
+    private var mascotBridgeSpot: (offset: CGFloat, baseline: CGFloat, size: CGFloat)?
     private var dropActions: NotchFileDropActions?
     private var acceptingDrag = false
     private var contentSize: CGSize
@@ -1006,6 +1024,8 @@ private final class NotchCanvas: NSView {
         layer?.mask = silhouette
         addSubview(backdrop)
         addSubview(host)
+        mascotBridge.isHidden = true
+        addSubview(mascotBridge)
         activationButton.isTransparent = true
         activationButton.isHidden = true
         activationButton.target = activationButton
@@ -1541,6 +1561,50 @@ private final class NotchCanvas: NSView {
         return CATransform3DTranslate(transform, -offset.x, -offset.y, 0)
     }
 
+    func showMascotBridge(look: NotchMascotLook, size: CGFloat, mood: NotchMascotMood, from: CGFloat, to: CGFloat,
+                          baseline: CGFloat, duration: CFTimeInterval) {
+        let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        mascotBridgeSpot = (to, baseline, size)
+        // Its layer is its own, which Core Animation would fade in and move
+        // from where it last was.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        mascotBridge.configure(look: look, size: size, mood: mood, idles: false, reduceMotion: reduceMotion,
+                               animated: false)
+        layoutMascotBridge()
+        mascotBridge.place(at: nil, visible: nil)
+        mascotBridge.layer?.removeAnimation(forKey: "slide")
+        mascotBridge.isHidden = false
+        CATransaction.commit()
+        guard !reduceMotion, abs(from - to) > 0.25, let layer = mascotBridge.layer else { return }
+        // The little way between where the closed and the open island keep it.
+        let slide = CABasicAnimation(keyPath: "position.x")
+        slide.fromValue = from - to
+        slide.toValue = 0
+        slide.isAdditive = true
+        slide.duration = duration
+        slide.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+        layer.add(slide, forKey: "slide")
+    }
+
+    func hideMascotBridge() {
+        mascotBridgeSpot = nil
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        mascotBridge.layer?.removeAnimation(forKey: "slide")
+        mascotBridge.isHidden = true
+        CATransaction.commit()
+    }
+
+    /// Placed again whenever the canvas moves under the display's centre.
+    private func layoutMascotBridge() {
+        guard let spot = mascotBridgeSpot else { return }
+        let box = spot.size + 8
+        let centre = (stageCentreX?() ?? bounds.midX) + spot.offset
+        let frame = CGRect(x: centre - box / 2, y: spot.baseline - box / 2, width: box, height: box)
+        if mascotBridge.frame != frame { mascotBridge.frame = frame }
+    }
+
     private func endArrival() {
         arrivalGeneration += 1
         arrival = nil
@@ -1586,6 +1650,7 @@ private final class NotchCanvas: NSView {
         hostFrame.origin.x = centre - stage.width / 2
         if host.frame != hostFrame { host.frame = hostFrame }
         contentVisibility.frame = host.bounds
+        layoutMascotBridge()
         if let arrival, arrival.width != host.layer?.bounds.width { installArrivalScale() }
         var backdropFrame = NotchStage.frame(stage, in: bounds)
         backdropFrame.origin.x = hostFrame.minX

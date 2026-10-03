@@ -127,6 +127,8 @@ enum NotchMusicVisibilityTests {
         func removeCaptureControlsClickThrough() {}
         func refreshPresentation() {}
         func removeEventMonitors() {}
+        func mascotBridgeStart(opening: Bool) -> CGFloat? { nil }
+        func bridgeMascot(from: CGFloat, opening: Bool) {}
         func clearCapture() {
             captureClose = nil
             captureClosesOnCollapse = false

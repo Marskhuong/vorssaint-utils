@@ -265,6 +265,9 @@ struct NotchView: View {
                                  visit: service.mascotVisit.flatMap { $0.kind == .cross ? $0 : nil },
                                  mood: service.mascotRestingMood, reaction: service.mascotReaction, followsIsland: true)
                 .frame(width: track.width, height: track.height)
+                // The window's own layer shows it while the island opens around it.
+                .opacity(service.mascotBridging ? 0 : 1)
+                .animation(nil, value: service.mascotBridging)
                 .allowsHitTesting(false)
                 .transition(.opacity)
         }
@@ -741,6 +744,9 @@ struct NotchRestingStrip: View {
                                      rests: service.mascotAtRest, visit: service.mascotVisit,
                                      mood: service.mascotRestingMood, reaction: service.mascotReaction)
                     .frame(width: geometry.collapsed.width, height: geometry.stripHeight)
+                    // The window's own layer shows it while the island closes around it.
+                    .opacity(service.mascotBridging && displayGeometry == nil ? 0 : 1)
+                    .animation(nil, value: service.mascotBridging)
                     .allowsHitTesting(false)
             }
         }
