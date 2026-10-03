@@ -145,7 +145,7 @@ final class NotchWindowHost: NSObject, CAAnimationDelegate {
                                 duration: duration, scale: scale, trailsGrowth: trailsGrowth, hop: hop)
     }
 
-    func endMascotBridge() { canvas.hideMascotBridge() }
+    func endMascotBridge(fading: Bool = false) { canvas.hideMascotBridge(fading: fading) }
 
     func reactMascotBridge(_ event: NotchMascotReactionEvent, lift: CGFloat) {
         canvas.reactMascotBridge(event, lift: lift)
@@ -1588,6 +1588,7 @@ private final class NotchCanvas: NSView {
         layoutMascotBridge()
         mascotBridge.place(at: nil, visible: nil)
         mascotBridge.layer?.removeAnimation(forKey: "slide")
+        mascotBridge.layer?.removeAnimation(forKey: "fade")
         mascotBridge.scale(from: scale.from, to: scale.to, duration: duration, timing: timing)
         mascotBridge.isHidden = false
         CATransaction.commit()
@@ -1618,12 +1619,35 @@ private final class NotchCanvas: NSView {
         mascotBridge.react(event, lift: lift)
     }
 
-    func hideMascotBridge() {
+    /// Out of sight at once, or with `fading` over a moment, for a stand-in
+    /// whose place went to something else while it was on its way.
+    func hideMascotBridge(fading: Bool = false) {
         mascotBridgeSpot = nil
+        guard fading, !mascotBridge.isHidden, let layer = mascotBridge.layer,
+              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { concealMascotBridge(); return }
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = layer.presentation()?.opacity ?? 1
+        fade.toValue = 0
+        fade.duration = 0.12
+        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        fade.fillMode = .forwards
+        fade.isRemovedOnCompletion = false
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { [weak self] in
+            // Shown again meanwhile, it stays.
+            guard let self, self.mascotBridgeSpot == nil else { return }
+            self.concealMascotBridge()
+        }
+        layer.add(fade, forKey: "fade")
+        CATransaction.commit()
+    }
+
+    private func concealMascotBridge() {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         mascotBridge.layer?.removeAnimation(forKey: "slide")
         mascotBridge.layer?.removeAnimation(forKey: "hop")
+        mascotBridge.layer?.removeAnimation(forKey: "fade")
         mascotBridge.isHidden = true
         mascotBridge.scale(from: 1, to: 1, duration: 0)
         CATransaction.commit()

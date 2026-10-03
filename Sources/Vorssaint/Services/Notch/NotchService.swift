@@ -236,6 +236,8 @@ final class NotchService: ObservableObject {
     private var nextMascotVisitWork: DispatchWorkItem?
     /// Visits were on at the last preference sync, so turning them on is greeted.
     private var mascotVisitsWereOn = false
+    /// How often it visited as of the last preference sync.
+    private var mascotFrequencyAtSync: NotchMascotVisitFrequency?
     /// Whether the companion was on at the last preference sync, nil before the first.
     private var mascotWasEnabled: Bool?
     /// The side it rested on at the last preference sync, nil before the first.
@@ -265,6 +267,9 @@ final class NotchService: ObservableObject {
     /// or closes around it, and the strip and the page leave theirs out.
     @Published private(set) var mascotBridging = false
     private var mascotBridgeWork: DispatchWorkItem?
+    /// Where the stand-in is headed: the island at rest, the open island or a notice.
+    private enum MascotBridgeTarget: Equatable { case rest, resident, notice(NotchNotice) }
+    private var mascotBridgeTarget: MascotBridgeTarget?
     /// How high the stand-in hops for a reaction, as the strip it stands for does.
     private var mascotBridgeLift: CGFloat = 0
     /// The closed island showed the companion at rest as of the last refresh.
@@ -2340,6 +2345,10 @@ final class NotchService: ObservableObject {
         if let windowHost, windowHost.targetSize != size { objectWillChange.send() }
         windowHost?.setOutline(enabled: !fullscreenCompact && UserDefaults.standard.bool(forKey: DefaultsKey.notchOutlineEnabled),
                                color: compactActivityIsVisible && compactActivity == .timer ? .systemOrange : .white)
+        // Something else took the place the stand-in was headed for, as music
+        // arriving while the island closes: it goes now rather than stand
+        // over what came instead.
+        if mascotBridging, !mascotBridgeTargetShows { endMascotBridgeNow(fading: true) }
         // An activity takes the companion's place at rest: it fades out ahead
         // of the strip coming in, unless it stays to react over the strip.
         if mascotRestedInView, compactActivity != nil, !mascotLingers,
@@ -3653,15 +3662,14 @@ extension NotchService {
     /// is Core Animation's to draw.
     fileprivate func syncMascotVisits() {
         let visits = running && NotchMascotSupport.visits()
-        defer { mascotVisitsWereOn = visits }
+        let frequency = NotchMascotSupport.visitFrequency()
+        defer { mascotVisitsWereOn = visits; mascotFrequencyAtSync = frequency }
         guard visits else {
             nextMascotVisitWork?.cancel(); nextMascotVisitWork = nil
             // Visits turned off only stop coming: what plays now, a stroll, a
-            // reaction or an entrance, plays out. Switched off, it leaves
-            // with its farewell alone, and a stopped island ends everything.
-            if let visit = mascotVisit, visit.kind != .farewell, !running || !NotchMascotSupport.isEnabled() {
-                endMascotVisit()
-            }
+            // reaction or an entrance, plays out, and switched off it says
+            // goodbye once back in its place. A stopped island ends everything.
+            if let visit = mascotVisit, visit.kind != .farewell, !running { endMascotVisit() }
             return
         }
         // Turned on just now: it says hello almost at once. Coming out from
@@ -3670,8 +3678,9 @@ extension NotchService {
             if mascotVisit?.kind != .arrive {
                 scheduleMascotVisit(after: NotchMascotSupport.welcomeDelay, greeting: .wink)
             }
-        } else if nextMascotVisitWork == nil, mascotVisit == nil {
-            scheduleMascotVisit(after: NotchMascotSupport.nextVisitDelay())
+        } else if mascotVisit == nil, nextMascotVisitWork == nil || mascotFrequencyAtSync != frequency {
+            // A new pace takes effect now, not after the visit already planned.
+            scheduleMascotVisit(after: NotchMascotSupport.nextVisitDelay(frequency))
         }
     }
 
@@ -3694,6 +3703,13 @@ extension NotchService {
         // Low Power Mode keeps it at rest, and a pending visit simply comes later.
         guard asked || !ProcessInfo.processInfo.isLowPowerModeEnabled else {
             scheduleMascotVisit(after: NotchMascotSupport.nextVisitDelay())
+            return
+        }
+        // Without motion a stroll over an activity hides its strip for
+        // seconds: it waits for the island to rest, and a hello asked for
+        // plays in its own wing.
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, !mascotRestsInView {
+            if asked { beginMascotCameo(.celebrate) } else { scheduleMascotVisit(after: NotchMascotSupport.nextVisitDelay()) }
             return
         }
         let visit = NotchMascotVisit(id: UUID(), kind: mascotRestsInView ? .lap : .pass,
@@ -3720,6 +3736,18 @@ extension NotchService {
             let work = DispatchWorkItem { [weak self] in self?.endMascotVisit() }
             mascotVisitWork = work
             DispatchQueue.main.asyncAfter(deadline: .now() + back.duration, execute: work)
+            return
+        }
+        // Switched off while it strolled to its place: it says goodbye from
+        // there rather than vanish, as it does switched off at rest.
+        if running, !NotchMascotSupport.isEnabled(), !ended.kind.endsOutOfSight, ended.kind != .farewell,
+           !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, idleContent == .none, compactActivity == nil,
+           !mascotInBar, canHostMascotVisit() {
+            let farewell = NotchMascotVisit(id: UUID(), kind: .farewell, greeting: .happy, start: CACurrentMediaTime())
+            setMascotVisit(farewell)
+            let work = DispatchWorkItem { [weak self] in self?.endMascotVisit() }
+            mascotVisitWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + farewell.duration, execute: work)
             return
         }
         setMascotVisit(nil)
@@ -3762,8 +3790,8 @@ extension NotchService {
     /// gives a glad hop and goes behind the camera, and the wings fold once
     /// it is gone, since the farewell keeps it drawn until then.
     fileprivate func stageMascotEntrance(arriving: Bool) {
-        // A stroll under way when it is turned off finishes on its own; one
-        // turned back on mid-farewell comes out from where it went.
+        // A stroll under way when it is turned off finishes first and says
+        // goodbye after. One turned back on mid-farewell comes out from where it went.
         guard !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion, idleContent == .none,
               compactActivity == nil, !mascotInBar, canHostMascotVisit(),
               arriving ? mascotVisit == nil || mascotVisit?.kind == .farewell : mascotVisit == nil else { return }
@@ -3814,7 +3842,8 @@ extension NotchService {
     /// Where the companion comes out over the activity strip of `size` the
     /// island shows, or nil when that strip has no room for it.
     func mascotTrack(overActivityStrip size: CGSize) -> NotchMascotTrack? {
-        guard mascotOn else { return nil }
+        // Switched off, a visit under way still plays out over the strip.
+        guard mascotOn || mascotVisit != nil else { return nil }
         return NotchMascotSupport.track(overActivity: geometry.floats ? geometry : compactActivityGeometry, size: size,
                                         side: mascotSide)
     }
@@ -3947,6 +3976,7 @@ extension NotchService {
         // window at once: shown only afterwards, it was gone for two frames.
         endMascotBridgeNow()
         showMascotBridge(from: from, to: from, duration: 0)
+        mascotBridgeTarget = opening ? .resident : .rest
         if !mascotBridging { mascotBridging = true }
         return from
     }
@@ -3982,6 +4012,7 @@ extension NotchService {
         endMascotBridgeNow()
         let from = mascotClosedOffset
         showMascotBridge(from: from, to: from, duration: 0)
+        mascotBridgeTarget = .notice(incoming)
         mascotBridging = true
         return from
     }
@@ -4014,6 +4045,7 @@ extension NotchService {
         let from = ending.mascotOffset(in: geometry)
         let scale = mascotNoticeScale
         showMascotBridge(from: from, to: from, duration: 0, scale: (scale, scale))
+        mascotBridgeTarget = .rest
         mascotBridging = true
         return from
     }
@@ -4052,6 +4084,7 @@ extension NotchService {
             guard let self else { return }
             self.mascotBridgeWork = nil
             self.mascotBridging = false
+            self.mascotBridgeTarget = nil
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
                 guard let self, !self.mascotBridging else { return }
                 self.windowHost?.endMascotBridge()
@@ -4062,10 +4095,21 @@ extension NotchService {
     }
 
     /// A step under way ends at once, the companion back where it is drawn.
-    private func endMascotBridgeNow() {
+    private func endMascotBridgeNow(fading: Bool = false) {
         mascotBridgeWork?.cancel(); mascotBridgeWork = nil
+        mascotBridgeTarget = nil
         if mascotBridging { mascotBridging = false }
-        windowHost?.endMascotBridge()
+        windowHost?.endMascotBridge(fading: fading)
+    }
+
+    /// Whether what the stand-in is headed for still draws the companion.
+    private var mascotBridgeTargetShows: Bool {
+        switch mascotBridgeTarget {
+        case .rest: return mascotRestsInView && canHostMascotVisit()
+        case .resident: return mascotResidentShows
+        case .notice(let shown): return notice == shown && !noticeExpanded && noticeCanPresent
+        case nil: return true
+        }
     }
 
     /// Where it rests in the closed island.
@@ -4152,7 +4196,6 @@ extension NotchService {
     fileprivate func mascotHearsMusic() {
         let now = CACurrentMediaTime()
         guard NotchMascotSupport.reacts(), now - lastMascotGroove > NotchMascotSupport.grooveInterval else { return }
-        lastMascotGroove = now
         DispatchQueue.main.asyncAfter(deadline: .now() + NotchMascotSupport.grooveDelay) { [weak self] in
             guard NotchMusicService.shared.playback?.isPlaying == true else { return }
             self?.reactMascot(.groove, patience: 3)
@@ -4214,6 +4257,9 @@ extension NotchService {
         }
         pendingMascotReaction = nil
         guard mascotReactionGate.admits(pending.reaction, at: now) else { return }
+        // Its wait for the next song counts from a groove it played, not one
+        // that never came, as when music started right after another reaction.
+        if pending.reaction == .groove { lastMascotGroove = now }
         // Open, it plays where the island keeps it beside the camera. An
         // activity that has just taken its place finds it still there.
         if mascotResidentShows || mascotRestsInView {

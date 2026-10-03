@@ -615,7 +615,8 @@ private struct NotchMascotSleepZs: View {
                     z(phase: 0.7)
                 }
             } else {
-                TimelineView(.animation) { timeline in
+                // Drifting slowly, they need no more than 30 frames a second.
+                TimelineView(.animation(minimumInterval: 1.0 / 30)) { timeline in
                     let time = timeline.date.timeIntervalSinceReferenceDate / Self.period
                     ZStack(alignment: .topLeading) {
                         ForEach(0..<3, id: \.self) { index in

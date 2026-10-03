@@ -596,8 +596,11 @@ final class NotchMascotRig: NSObject {
         let own = self.mood.expression
         for (layer, eye, base, right) in [(leftEye, expression.left, own.left, false), (rightEye, expression.right, own.right, true)] {
             let face = CAKeyframeAnimation(keyPath: "path")
-            let from = eyePath(base, right: right), to = eyePath(eye, right: right)
-            face.values = [from, to, to, from]
+            let back = eyePath(base, right: right), to = eyePath(eye, right: right)
+            // One shown now leaves from the eyes on screen, heavy from a doze
+            // or shut mid-blink, rather than from its own face for a frame.
+            let from = beginTime == nil ? layer.presentation()?.path ?? back : back
+            face.values = [from, to, to, back]
             face.keyTimes = [0, 0.15, 0.85, 1]
             face.duration = duration
             if let beginTime { face.beginTime = beginTime }
@@ -631,8 +634,11 @@ final class NotchMascotRig: NSObject {
             still.beginTime = start
             root.add(still, forKey: "visit")
             if root.position != stand {
+                // Staying on from where it stood, as to react over an
+                // activity, it only fades out at the end.
+                let inPlace = abs((path.x.first ?? .infinity) - stand.x) < 0.5
                 let fade = CAKeyframeAnimation(keyPath: "opacity")
-                fade.values = [0, 1, 1, 0]
+                fade.values = [inPlace ? 1 : 0, 1, 1, 0]
                 fade.keyTimes = [0, 0.12, 0.88, 1]
                 fade.duration = path.duration
                 fade.beginTime = start
@@ -1227,8 +1233,10 @@ struct NotchMascotTrackView: NSViewRepresentable {
         view.followsPointer = rests && awake
         view.followsIsland = followsIsland && rests && awake
         view.yieldsToActivities = yieldsToActivities
+        // A countdown is watched from the camera's left whatever the side.
+        let stand = visit?.kind.watchesTimer == true ? track.leftSide.rest : track.rest
         view.playVisit(visit, path: NotchMascotMotion.path(for: visit?.kind ?? .pass, on: track),
-                       baseline: track.baseline, stand: CGPoint(x: track.rest, y: track.baseline),
+                       baseline: track.baseline, stand: CGPoint(x: stand, y: track.baseline),
                        lift: track.hop(0.22))
         if rests { view.react(reaction, lift: track.hop(0.22)) }
     }

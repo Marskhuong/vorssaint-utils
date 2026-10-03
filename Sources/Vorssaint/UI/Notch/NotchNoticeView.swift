@@ -70,6 +70,13 @@ struct NotchNoticeView: View {
                         NotchMascotView(look: NotchMascotSupport.look(), mood: NotchService.shared.mascotRestingMood,
                                         size: size, reaction: NotchMascotSupport.reacts() ? reaction : nil)
                             .frame(width: size, height: size)
+                            // Half a point low, on the line it rests on beside
+                            // the camera, so it steps in and out with no jump.
+                            .offset(y: 0.5)
+                            // One notice in place of another plays its own reaction,
+                            // swapped at once: two of it crossfading in one place dimmed it.
+                            .id("\(notice.event)|\(notice.title)|\(notice.detail)|\(reaction.rawValue)")
+                            .transition(.identity)
                             .opacity(hidesMascot ? 0 : 1)
                             .animation(nil, value: hidesMascot)
                     } else if notice.event == .agents, let agent = notice.agent, notice.symbol == agent.symbol {

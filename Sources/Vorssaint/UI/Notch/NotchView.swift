@@ -686,8 +686,13 @@ struct NotchRestingStrip: View {
         min(16, NotchLayout.shoulder(height: geometry.stripHeight) + NotchLayout.compactEdgeGap)
     }
 
-    /// A visit walks over what the island rests with, which steps aside meanwhile.
-    private var contentStepsAside: Bool { service.mascotStepsAside && !service.mascotAtRest }
+    /// A visit walks over what the island rests with, which steps aside
+    /// meanwhile. Reacting in its own wing, it takes only that one, as over
+    /// an activity, and the other side stays in view.
+    private func wingStepsAside(_ side: NotchMascotSide) -> Bool {
+        guard service.mascotStepsAside, !service.mascotAtRest else { return false }
+        return service.mascotVisit?.kind.takesOnlyItsWing != true || side == service.mascotSide
+    }
 
     var body: some View {
         ZStack {
@@ -712,7 +717,10 @@ struct NotchRestingStrip: View {
                                 .padding(.leading, restingBatteryInset)
                         case .none: EmptyView()
                         }
-                    }.frame(width: geometry.restingWingWidth)
+                    }
+                    .frame(width: geometry.restingWingWidth)
+                    .opacity(wingStepsAside(.left) ? 0 : 1)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: wingStepsAside(.left))
                     Color.clear.frame(width: geometry.cameraWidth)
                     ZStack(alignment: .leading) {
                         Color.clear
@@ -733,11 +741,12 @@ struct NotchRestingStrip: View {
                                 .padding(.trailing, restingBatteryInset)
                         case .none: EmptyView()
                         }
-                    }.frame(width: geometry.restingWingWidth)
+                    }
+                    .frame(width: geometry.restingWingWidth)
+                    .opacity(wingStepsAside(.right) ? 0 : 1)
+                    .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: wingStepsAside(.right))
                 } else { Color.clear }
             }
-            .opacity(contentStepsAside ? 0 : 1)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: contentStepsAside)
             if service.mascotShows(on: geometry) {
                 NotchMascotTrackView(look: NotchMascotSupport.look(),
                                      track: NotchMascotSupport.track(stripWidth: geometry.collapsed.width,

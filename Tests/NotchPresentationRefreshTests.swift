@@ -185,6 +185,13 @@ enum NotchPresentationRefreshContract {
         var mascotRestsInView = false
         var mascotRestedInView = false
         var mascotLingers = false
+        var mascotBridging = false
+        var mascotBridgeTargetShows = true
+        var bridgeEnds: [Bool] = []
+        func endMascotBridgeNow(fading: Bool = false) {
+            bridgeEnds.append(fading)
+            mascotBridging = false
+        }
         var selectedMetric: Bool?
         var expanded = true
         var peeking = false, dragPlaceholder = false, compactActivityIsVisible = false
@@ -604,6 +611,16 @@ enum NotchPresentationRefreshContract {
         suite.expect(arrival(lingers: true).first == 0 && arrival(reduceMotion: true).first == 0
                      && arrival(activity: false).first == 0,
                      "a companion staying to react, Reduce Motion or nothing arriving leaves it where it rests")
+        let bridged = Service()
+        bridged.expanded = false
+        bridged.mascotBridging = true
+        bridged.refreshPresentation()
+        let kept = bridged.bridgeEnds.isEmpty && bridged.mascotBridging
+        bridged.mascotBridgeTargetShows = false
+        bridged.refreshPresentation()
+        bridged.refreshPresentation()
+        suite.expect(kept && bridged.bridgeEnds == [true] && !bridged.mascotBridging,
+                     "a stand-in still headed for its place stays, and one whose place went to something else fades out once")
     }
 
     private static func compactMusicDepartureChecks(_ suite: TestSuite) {
