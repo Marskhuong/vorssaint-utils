@@ -59,6 +59,8 @@ final class NotchMascotRig: NSObject {
     /// It grew sleepy on its own after a long rest, rather than being shown
     /// so, and anything that happens wakes it.
     private var dozed = false
+    /// When its eyes last went after something: a pointer, a drag or typing.
+    private var attended: CFTimeInterval = -.infinity
     private var blinkRelay: NotchMascotAnimationRelay?
     /// Blinks wait until a visit has gone by.
     private var blinksResume: CFTimeInterval = 0
@@ -280,6 +282,7 @@ final class NotchMascotRig: NSObject {
     /// starts where the eyes are, never where the last one meant to go.
     func attend(to target: CGPoint, hold: TimeInterval? = nil) {
         guard size > 0, !reduceMotion else { return }
+        attended = CACurrentMediaTime()
         let from = attention.presentation()?.transform ?? attention.transform
         let to = CATransform3DMakeTranslation(target.x * size, target.y * size, 0)
         let look = CAKeyframeAnimation(keyPath: "transform")
@@ -646,6 +649,11 @@ final class NotchMascotRig: NSObject {
         blinkRelay = nil
         leftEye.removeAnimation(forKey: "blink")
         rightEye.removeAnimation(forKey: "blink")
+        // A glance on its way goes with the blink it led to; one under way
+        // finishes, so the eyes never jump.
+        if let glance = attention.animation(forKey: "idleGlance"), glance.beginTime > CACurrentMediaTime() {
+            attention.removeAnimation(forKey: "idleGlance")
+        }
     }
 
     private func pauseBlinking(for duration: TimeInterval, from begin: CFTimeInterval?) {
@@ -670,6 +678,22 @@ final class NotchMascotRig: NSObject {
         blink.beginTime = now + delay
         // Reduce Motion: the eyes close and open without a motion between.
         if reduceMotion { blink.calculationMode = .discrete }
+        // Now and then its eyes wander to one side, and the blink comes as
+        // they find their way back, as eyes do. Not while they follow
+        // something, which would pull them apart.
+        if !twice, !reduceMotion, now - attended > 3, Double.random(in: 0...1) < NotchMascotSupport.glanceChance {
+            let away = CATransform3DMakeTranslation((Bool.random() ? 1 : -1) * size * 0.12, 0, 0)
+            let glance = CAKeyframeAnimation(keyPath: "transform")
+            glance.values = [CATransform3DIdentity, away, away, CATransform3DIdentity].map { NSValue(caTransform3D: $0) }
+            glance.keyTimes = [0, 0.2, 0.8, 1]
+            glance.timingFunctions = [CAMediaTimingFunction(controlPoints: 0.2, 0.8, 0.3, 1),
+                                      CAMediaTimingFunction(name: .linear), CAMediaTimingFunction(name: .easeInEaseOut)]
+            glance.duration = 1.3
+            // On top of wherever the eyes look, so nothing else is undone.
+            glance.isAdditive = true
+            glance.beginTime = blink.beginTime - 1.1
+            attention.add(glance, forKey: "idleGlance")
+        }
         let relay = NotchMascotAnimationRelay(target: self)
         blinkRelay = relay
         blink.delegate = relay

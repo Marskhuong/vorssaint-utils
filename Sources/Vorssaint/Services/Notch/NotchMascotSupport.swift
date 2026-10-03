@@ -1152,6 +1152,10 @@ enum NotchMascotSupport {
         lowPower ? 5.2...12.8 : 2.6...6.4
     }
 
+    /// The share of blinks at rest its eyes wander to one side before:
+    /// about once in twenty seconds, enough to look about without fidgeting.
+    static let glanceChance = 0.25
+
     /// After this many blinks at rest its eyes grow heavy: about three minutes
     /// by day, under a minute late at night.
     static func blinksBeforeSleep(hour: Int) -> Int {
