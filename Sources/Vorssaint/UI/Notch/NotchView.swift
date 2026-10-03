@@ -260,7 +260,9 @@ struct NotchView: View {
     @ViewBuilder private var residentMascot: some View {
         if service.mascotResidentShows {
             let track = service.mascotResidentTrack(surfaceWidth: service.expandedSize.width)
-            NotchMascotTrackView(look: NotchMascotSupport.look(), track: track, rests: true, visit: nil,
+            // Moved to the camera's other side, it crosses behind the camera here too.
+            NotchMascotTrackView(look: NotchMascotSupport.look(), track: track, rests: true,
+                                 visit: service.mascotVisit.flatMap { $0.kind == .cross ? $0 : nil },
                                  mood: service.mascotRestingMood, reaction: service.mascotReaction, followsIsland: true)
                 .frame(width: track.width, height: track.height)
                 .allowsHitTesting(false)

@@ -3681,6 +3681,11 @@ extension NotchService {
             return
         }
         setMascotVisit(nil)
+        // A side chosen while it was out takes effect now.
+        if mascotSideAtSync != NotchMascotSupport.side() {
+            syncMascotSide()
+            if mascotVisit != nil { return }
+        }
         if running, NotchMascotSupport.visits() { scheduleMascotVisit(after: NotchMascotSupport.nextVisitDelay()) }
     }
 
@@ -3886,10 +3891,15 @@ extension NotchService {
     private func syncMascotSide() {
         let side = NotchMascotSupport.side()
         let previous = mascotSideAtSync
+        // A visit under way finishes on the side it set out on, or its path
+        // would turn around mid-way; the side chosen since follows once it
+        // is over.
+        guard previous == nil || mascotVisit == nil else { return }
         mascotSideAtSync = side
-        guard let previous, previous != side, mascotRestsInView, mascotVisit == nil,
-              !geometry.floats, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
-              canHostMascotVisit() else { return }
+        // Across, behind the camera, closed or where the open island keeps it.
+        guard let previous, previous != side, !geometry.floats,
+              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+              mascotResidentShows || (mascotRestsInView && canHostMascotVisit()) else { return }
         let cross = NotchMascotVisit(id: UUID(), kind: .cross, greeting: .wink, start: CACurrentMediaTime())
         mutatePresentation { mascotVisit = cross }
         mascotVisitWork?.cancel()
