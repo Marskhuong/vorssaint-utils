@@ -242,6 +242,10 @@ final class NotchService: ObservableObject {
     /// Whether Keep Awake held the Mac up when the companion last looked,
     /// nil before it first did.
     private var mascotSawKeepAwake: Bool?
+    /// Whether an AI agent was at work when the companion last looked, nil
+    /// before it first did, and when it last handed the island to one.
+    private var mascotSawAgents: Bool?
+    private var lastMascotAgentStart: CFTimeInterval = -.infinity
     /// The companion is out in the Command Bar's drop, and the island rests without it.
     @Published private(set) var mascotInBar = false
     /// The closed island showed the companion at rest as of the last refresh.
@@ -2250,6 +2254,7 @@ final class NotchService: ObservableObject {
 
     func refreshPresentation(animated: Bool = true, transitionContent: NotchContentTransition = .none) {
         syncMascotKeepAwake()
+        syncMascotAgents()
         activitySelection.reconcile(available: compactActivities)
         if fullscreenCompact {
             finishMusicDeparture()
@@ -3864,6 +3869,22 @@ extension NotchService {
         guard let saw, saw != active, NotchMascotSupport.isEnabled() else { return }
         objectWillChange.send()
         reactMascot(active ? .perk : .yawn)
+    }
+
+    /// An AI agent getting to work where the companion rests: it stays in its
+    /// wing with a ready face as the agent's strip takes its place, then
+    /// goes behind the camera and leaves the agent's mark there. Checked as
+    /// the island refreshes, before that strip is drawn, at most once in a
+    /// while.
+    fileprivate func syncMascotAgents() {
+        let working = hasAgentActivity
+        let saw = mascotSawAgents
+        mascotSawAgents = working
+        guard saw == false, working, mascotRestedInView, NotchMascotSupport.reacts() else { return }
+        let now = CACurrentMediaTime()
+        guard now - lastMascotAgentStart > NotchMascotSupport.agentStartInterval else { return }
+        lastMascotAgentStart = now
+        reactMascot(.ready, patience: 1)
     }
 
     /// Music started: once the song's strip has settled, the companion comes

@@ -173,6 +173,7 @@ enum NotchPresentationRefreshContract {
         func commandBarDidClose() { commandBarClosings += 1 }
         func flushMascotReaction() {}
         func syncMascotKeepAwake() {}
+        func syncMascotAgents() {}
         var mascotRestsInView = false
         var mascotRestedInView = false
         var selectedMetric: Bool?

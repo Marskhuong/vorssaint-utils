@@ -1133,6 +1133,9 @@ enum NotchMascotSupport {
     /// It waits this long after the music starts, until the song's strip has
     /// settled, before it comes out over it.
     static let grooveDelay: TimeInterval = 1.2
+    /// An AI agent getting to work where it rests has it hand the island over
+    /// with a ready face at most this often, since agents start many turns.
+    static let agentStartInterval: TimeInterval = 600
     static let greetings: [NotchMascotMood] = [.happy, .wink, .love]
 
     /// A blink comes this long after the previous one, twice as long in Low
