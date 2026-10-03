@@ -16,6 +16,9 @@ struct NotchNotice: Equatable {
     var notificationID: UUID? = nil
     /// The agent an AI notice is about, which tints its mark.
     var agent: AgentProvider? = nil
+    /// With the companion on, it takes the symbol's place in the notice and
+    /// plays this, so the notice itself is its reaction.
+    var mascot: NotchMascotReaction? = nil
     /// A banner that replaces one still on screen keeps at least its width,
     /// so a burst of messages does not resize the island with each one.
     var minimumWingWidth: CGFloat = 0
@@ -2040,7 +2043,7 @@ final class NotchService: ObservableObject {
         let text = L10n.shared.s
         return show(NotchNotice(event: .microphone, title: "",
                                 detail: muted ? text.micMutedHUD : text.micUnmutedHUD,
-                                symbol: muted ? "mic.slash.fill" : "mic.fill"))
+                                symbol: muted ? "mic.slash.fill" : "mic.fill", mascot: muted ? .hush : .perk))
     }
 
     /// A partial result is confirmed by the floating panel alone, so the
@@ -3291,7 +3294,7 @@ final class NotchService: ObservableObject {
             NotchDownloadService.shared.onArrival = { [weak self] item in
                 self?.show(NotchNotice(event: .download,
                     title: FeatureStrings.notchFiles(L10n.shared.language).completed,
-                    detail: item.name, symbol: "arrow.down.circle.fill"))
+                    detail: item.name, symbol: "arrow.down.circle.fill", mascot: .celebrate))
                 self?.reactMascot(.celebrate)
             }
             NotchDownloadService.shared.onFailure = { [weak self] in self?.reactMascot(.confused) }
@@ -3337,7 +3340,7 @@ final class NotchService: ObservableObject {
             .sink { [weak self] active in
                 guard let self, NotchMascotSupport.isEnabled() else { return }
                 self.objectWillChange.send()
-                if !active { self.reactMascot(.yawn) }
+                self.reactMascot(active ? .perk : .yawn)
             }.store(in: &subscriptions)
         if NotchSupport.routes(.agents) {
             AgentUsageService.shared.events.receive(on: DispatchQueue.main)
@@ -3498,10 +3501,13 @@ final class NotchService: ObservableObject {
         let title = low ? text.lowBattery : next.externalConnected
             ? (next.isCharging ? text.charging : next.chargePercent == 100
                 ? text.charged : L10n.shared.s.powerPluggedIn) : text.onBattery
+        // Plugged in it is glad, and running low it grows tired.
+        let reaction: NotchMascotReaction? = pluggedIn ? .love : low ? .yawn : nil
         show(NotchNotice(event: .battery, title: title,
                          detail: next.chargePercent.map { "\($0)%" } ?? "",
-                         symbol: next.externalConnected ? "battery.100percent.bolt" : "battery.25percent"))
-        if pluggedIn { reactMascot(.love) }
+                         symbol: next.externalConnected ? "battery.100percent.bolt" : "battery.25percent",
+                         mascot: reaction))
+        if let reaction { reactMascot(reaction) }
     }
 
     private func syncVisibleConsumers() {
@@ -3629,6 +3635,45 @@ extension NotchService {
     /// It rests in the closed island now, rather than only visiting it.
     private var mascotRestsInView: Bool { mascotAtRest && compactActivity == nil }
 
+    /// Open beside a camera, the island keeps the companion where it rests
+    /// closed, in the top row beside the camera, so the island opens around
+    /// it. The row must leave it room: free when the header sits below the
+    /// camera, or past the title or the actions on its side of the camera.
+    var mascotResidentShows: Bool {
+        guard NotchMascotSupport.isEnabled(), !mascotInBar, expanded, !showingCommandBar, captureControls == nil,
+              !dragPlaceholder, !noticeExpanded, geometry.isNotched, !geometry.floats else { return false }
+        let header = expandedGeometry
+        guard header.headerCameraGap > 0 else { return true }
+        let side = (contentSize.width - header.headerCameraGap) / 2
+        let lane = NotchMascotSupport.residentLane(stripHeight: geometry.stripHeight)
+        switch NotchMascotSupport.side() {
+        case .left:
+            // A level shown in the header, or the sections' search, fills that side.
+            guard !showingSections, notice?.level == nil else { return false }
+            return header.headerTitleWidth + lane <= side
+        case .right:
+            return headerActionsWidth + lane <= side
+        }
+    }
+
+    /// The header's actions beside the camera: its menu, and the update
+    /// button while one is offered or under way.
+    private var headerActionsWidth: CGFloat {
+        switch UpdateService.shared.state {
+        case .available, .downloading, .installing: return 28 + 6 + 120
+        default: return 28
+        }
+    }
+
+    /// Where the open island keeps it, in a surface `width` wide: the same
+    /// place beside the camera it rests in when the island is closed.
+    func mascotResidentTrack(surfaceWidth width: CGFloat) -> NotchMascotTrack {
+        let wing = (width - geometry.cameraWidth) / 2
+        return NotchMascotSupport.track(stripWidth: width, stripHeight: geometry.stripHeight,
+                                        wing: wing, cameraWidth: geometry.cameraWidth, floats: false,
+                                        bodyHeight: geometry.stripBodyHeight, side: NotchMascotSupport.side())
+    }
+
     // MARK: Command Bar
 
     /// Where a drop for the Command Bar leaves the closed island: its visible
@@ -3718,6 +3763,11 @@ extension NotchService {
     /// enough, and never twice in a row.
     func reactMascot(_ reaction: NotchMascotReaction, patience: TimeInterval = NotchMascotReactionGate.patience) {
         guard NotchMascotSupport.isEnabled() else { return }
+        // A notice on screen that shows the companion plays it there already.
+        if notice?.mascot == reaction, noticeCanPresent {
+            _ = mascotReactionGate.admits(reaction, at: CACurrentMediaTime())
+            return
+        }
         pendingMascotReaction = (reaction, CACurrentMediaTime() + patience)
         flushMascotReaction()
     }
@@ -3728,14 +3778,44 @@ extension NotchService {
         guard let pending = pendingMascotReaction else { return }
         let now = CACurrentMediaTime()
         guard now <= pending.deadline, NotchMascotSupport.isEnabled() else { pendingMascotReaction = nil; return }
-        guard mascotVisit == nil, canHostMascotVisit() else { return }
+        guard mascotVisit == nil, mascotResidentShows || canHostMascotVisit() else { return }
         pendingMascotReaction = nil
         guard mascotReactionGate.admits(pending.reaction, at: now) else { return }
-        if mascotRestsInView {
+        // Open, it plays where the island keeps it beside the camera.
+        if mascotResidentShows || mascotRestsInView {
             mascotReaction = NotchMascotReactionEvent(id: UUID(), reaction: pending.reaction, start: now)
         } else {
             beginMascotCameo(pending.reaction)
         }
+    }
+
+    /// The last seconds of a countdown the closed island shows: the companion
+    /// comes out over the timer's mark and watches the reading run out. A
+    /// capsule has no camera to come from, so it stays as it is.
+    func watchMascotCountdown(remaining: TimeInterval) {
+        guard NotchMascotSupport.isEnabled(), remaining > 1, mascotVisit == nil, compactActivity == .timer,
+              !geometry.floats, canHostMascotVisit() else { return }
+        let watch = NotchMascotVisit(id: UUID(), kind: .countdown(remaining), greeting: .idle,
+                                     start: CACurrentMediaTime())
+        setMascotVisit(watch)
+        mascotVisitWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.endMascotVisit() }
+        mascotVisitWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + watch.duration, execute: work)
+    }
+
+    /// The countdown it watches ran out, stopped or went away. Paused, with
+    /// its strip still there, it goes back behind the camera; otherwise the
+    /// strip that held it is gone and so is it.
+    func endMascotCountdown(retreating: Bool) {
+        guard let visit = mascotVisit, case .countdown = visit.kind else { return }
+        guard retreating, compactActivity == .timer, !geometry.floats else { endMascotVisit(); return }
+        let retreat = NotchMascotVisit(id: UUID(), kind: .retreat, greeting: .idle, start: CACurrentMediaTime())
+        setMascotVisit(retreat)
+        mascotVisitWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.endMascotVisit() }
+        mascotVisitWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + retreat.duration, execute: work)
     }
 
     /// Over what the closed island shows, the companion comes out from behind

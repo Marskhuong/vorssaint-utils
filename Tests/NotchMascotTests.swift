@@ -15,6 +15,7 @@ enum NotchMascotTests {
         strollContracts(suite)
         homecomingContracts(suite)
         cameoContracts(suite)
+        countdownContracts(suite)
         activityTrackContracts(suite)
         reactionContracts(suite)
         sideContracts(suite)
@@ -322,6 +323,53 @@ enum NotchMascotTests {
                 }
             }
         }
+    }
+
+    private static func countdownContracts(_ suite: TestSuite) {
+        let left = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                            floats: false, bodyHeight: 32)
+        let right = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                             floats: false, bodyHeight: 32, side: .right)
+        guard let hidden = left.hidden else { return suite.expect(false, "a notch track has a camera") }
+        let behind = { (x: CGFloat) in x - left.size / 2 >= hidden.lowerBound && x + left.size / 2 <= hidden.upperBound }
+        suite.expect(NotchMascotVisit.Kind.countdown(5).endsOutOfSight && NotchMascotVisit.Kind.retreat.endsOutOfSight
+                     && NotchMascotVisit.Kind.countdown(5).watchesTimer && NotchMascotVisit.Kind.retreat.watchesTimer
+                     && !NotchMascotVisit.Kind.cameo(.perk).watchesTimer,
+                     "watching a countdown, and going back from it, end out of sight over the timer's mark alone")
+        for total in [5.0, 4.6] {
+            let kind = NotchMascotVisit.Kind.countdown(total)
+            let path = NotchMascotMotion.path(for: kind, on: left)
+            let duration = NotchMascotMotion.duration(of: kind)
+            let time = { (index: Int) in path.keyTimes[index] * duration }
+            suite.expect(path.duration == duration && duration == total + NotchMascotMotion.countdownLinger
+                         + NotchMascotMotion.cameoExit
+                         && behind(path.x.first ?? 0) && behind(path.x.last ?? 0),
+                         "a countdown of \(total) seconds is watched from behind the camera and back, past its end")
+            suite.expect(path.x.allSatisfy { $0 >= left.rest - 0.01 && $0 <= (path.x.first ?? 0) + 0.01 },
+                         "it watches from the camera's left, over the timer's mark, and goes no further")
+            let watching = path.keyTimes.indices.filter {
+                time($0) >= NotchMascotMotion.cameoArrival && time($0) <= total
+            }
+            suite.expect(!watching.isEmpty && watching.allSatisfy { abs(path.x[$0] - left.rest) < 0.01 && path.gaze[$0] > 0.05 },
+                         "it stands where it rests, its eyes on the reading, until the countdown runs out")
+            let ticks = stride(from: total.rounded(.up) - 1, through: 1, by: -1).map { total - $0 }
+                .filter { $0 > NotchMascotMotion.cameoArrival + 0.25 }
+            let hopsAtTicks = ticks.allSatisfy { tick in
+                path.keyTimes.indices.contains { abs(time($0) - tick) < 0.04 && path.lift[$0] > 0.5 }
+            }
+            let stillBetween = ticks.dropLast().allSatisfy { tick in
+                path.keyTimes.indices.contains { abs(time($0) - (tick + 0.5)) < 0.04 && path.lift[$0] == 0 }
+            }
+            suite.expect(!ticks.isEmpty && hopsAtTicks && stillBetween,
+                         "with \(total) seconds left it hops as each second goes and keeps still between them")
+        }
+        let mirrored = NotchMascotMotion.path(for: .countdown(5), on: right)
+        suite.expect(mirrored.x == NotchMascotMotion.path(for: .countdown(5), on: left).x,
+                     "resting on the right, it still watches from the left, where the timer's mark is")
+        let retreat = NotchMascotMotion.path(for: .retreat, on: right)
+        suite.expect(abs((retreat.x.first ?? 0) - left.rest) < 0.01 && behind(retreat.x.last ?? 0)
+                     && retreat.duration == NotchMascotMotion.duration(of: .retreat),
+                     "a paused countdown sends it from where it watched back behind the camera")
     }
 
     private static func activityTrackContracts(_ suite: TestSuite) {

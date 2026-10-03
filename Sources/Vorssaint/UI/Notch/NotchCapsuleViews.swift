@@ -75,6 +75,7 @@ struct NotchCapsuleNoticeView: View {
         switch notice.event {
         // A warning reads as one in any agent's color; other AI notices wear it.
         case .agents: return notice.symbol.hasPrefix("exclamationmark") ? .orange : notice.agent?.tint ?? .white
+        case .timer: return .orange
         default: return .white
         }
     }
@@ -125,7 +126,9 @@ struct NotchCapsuleNoticeView: View {
     private var messageRow: some View {
         HStack(spacing: CapsuleLayout.spacing) {
             mark
+            // A timer's notice keeps the orange its strip wears.
             Text(notice.title).capsuleTitle().layoutPriority(1)
+                .foregroundStyle(notice.event == .timer ? Color.orange : .white)
             if !notice.detail.isEmpty {
                 Text(notice.detail).capsuleDetail()
                     .truncationMode(notice.event == .accessory ? .middle : .tail)
@@ -135,9 +138,15 @@ struct NotchCapsuleNoticeView: View {
     }
 
     @ViewBuilder private var mark: some View {
-        // A notice about the agent itself wears its mark; warnings and
-        // renewals keep a symbol that says what happened.
-        if notice.event == .agents, let agent = notice.agent, notice.symbol == agent.symbol {
+        // With the companion on, it stands in for the symbol and reacts. A
+        // notice about the agent itself wears its mark; warnings and renewals
+        // keep a symbol that says what happened.
+        if NotchMascotSupport.isEnabled(), let reaction = notice.mascot {
+            let side = min(CapsuleLayout.symbolWidth, CapsuleLayout.artworkSide(geometry))
+            NotchMascotView(look: NotchMascotSupport.look(), mood: NotchService.shared.mascotRestingMood,
+                            size: side, reaction: reaction)
+                .frame(width: CapsuleLayout.symbolWidth, height: side)
+        } else if notice.event == .agents, let agent = notice.agent, notice.symbol == agent.symbol {
             NotchAgentMark(provider: agent, size: CapsuleLayout.symbolSize).frame(width: CapsuleLayout.symbolWidth)
         } else if notice.event == .track {
             NotchCapsuleTrackArtwork(side: min(CapsuleLayout.symbolWidth, CapsuleLayout.artworkSide(geometry)))

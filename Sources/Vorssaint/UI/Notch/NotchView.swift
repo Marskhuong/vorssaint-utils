@@ -80,7 +80,7 @@ struct NotchView: View {
                 NotchCaptureControlsView(options: options, service: service, layout: service.captureControlsLayout)
             }
         } else if service.expanded {
-            if service.showingCommandBar { commandBarPage } else { expanded }
+            if service.showingCommandBar { commandBarPage } else { expanded.overlay(alignment: .top) { residentMascot } }
         } else if service.dragPlaceholder {
             Group {
                 if NotchMascotSupport.isEnabled() {
@@ -222,6 +222,19 @@ struct NotchView: View {
     }
 
     private var compact: some View { NotchRestingStrip(service: service) }
+
+    /// Open beside a camera, the companion stays where it rested closed, and
+    /// plays there what happens while the island is open.
+    @ViewBuilder private var residentMascot: some View {
+        if service.mascotResidentShows {
+            let track = service.mascotResidentTrack(surfaceWidth: service.expandedSize.width)
+            NotchMascotTrackView(look: NotchMascotSupport.look(), track: track, rests: true, visit: nil,
+                                 mood: service.mascotRestingMood, reaction: service.mascotReaction)
+                .frame(width: track.width, height: track.height)
+                .allowsHitTesting(false)
+                .transition(.opacity)
+        }
+    }
 
     /// The Command Bar in the open island: its field below the camera, its
     /// list below the field, and the island as tall as the two.

@@ -425,7 +425,9 @@ final class NotchMascotRig: NSObject {
             case .love: flashFace(.love, duration: 1.2)
             case .surprised, .flash: flashFace(.surprised, duration: 0.8)
             case .confused: flashFace(.confused, duration: 1.1)
-            case .yawn: flashFace(.sleepy, duration: 1.1)
+            case .yawn, .hush: flashFace(.sleepy, duration: 1.1)
+            case .perk: flashFace(.alert, duration: 1)
+            case .ready: flashFace(.determined, duration: 1)
             }
             return
         }
@@ -460,6 +462,32 @@ final class NotchMascotRig: NSObject {
         case .yawn:
             flashFace(.sleepy, duration: 1.2)
             stretch(beginTime: now + 0.1, duration: 0.9)
+        case .perk:
+            flashFace(.alert, duration: 1)
+            hop(height: lift * 0.55)
+        case .hush:
+            // Eyes shut for a moment as it ducks, then back.
+            let shut = CAKeyframeAnimation(keyPath: "transform.scale.y")
+            shut.values = [1, 0.1, 0.1, 1]
+            shut.keyTimes = [0, 0.22, 0.78, 1]
+            shut.duration = 0.95
+            for eye in [leftEye, rightEye] { eye.add(shut, forKey: "hush") }
+            let duck = CAKeyframeAnimation(keyPath: "transform")
+            duck.values = [squashed(0), squashed(0.1), squashed(0.1), squashed(-0.03), squashed(0)]
+                .map { NSValue(caTransform3D: $0) }
+            duck.keyTimes = [0, 0.25, 0.7, 0.88, 1]
+            duck.duration = 0.95
+            squasher.add(duck, forKey: "duck")
+            pauseBlinking(for: 1, from: nil)
+        case .ready:
+            flashFace(.determined, duration: 1)
+            // A nod: down a little, up past where it was, and settled.
+            let nod = CAKeyframeAnimation(keyPath: "transform")
+            nod.values = [squashed(0), squashed(0.1), squashed(-0.06), squashed(0)].map { NSValue(caTransform3D: $0) }
+            nod.keyTimes = [0, 0.3, 0.65, 1]
+            nod.duration = 0.5
+            nod.beginTime = now + 0.12
+            squasher.add(nod, forKey: "nod")
         }
     }
 
@@ -901,12 +929,19 @@ struct NotchMascotView: NSViewRepresentable {
     var cueID = 0
     /// Its eyes follow a file being dragged toward the island.
     var followsDrag = false
+    /// A reaction it plays once, as it first shows: a notice's.
+    var reaction: NotchMascotReaction? = nil
 
     func makeNSView(context: Context) -> NotchMascotHostView {
         let view = NotchMascotHostView(frame: CGRect(x: 0, y: 0, width: size, height: size))
         view.followsDrag = followsDrag
         view.configure(look: look, size: size, mood: mood, idles: idles,
                        reduceMotion: context.environment.accessibilityReduceMotion, animated: false)
+        if let reaction {
+            // Small in a notice, it hops a little higher for its size to read.
+            view.react(NotchMascotReactionEvent(id: UUID(), reaction: reaction, start: CACurrentMediaTime()),
+                       lift: size * 0.32)
+        }
         return view
     }
 
@@ -976,10 +1011,21 @@ struct NotchMascotActivityVisit: ViewModifier {
         // A lap or a homecoming ends where it rests, which an activity's
         // strip has no place for, so only what ends out of sight comes over it.
         let visit = track == nil ? nil : service.mascotVisit.flatMap { $0.kind.endsOutOfSight ? $0 : nil }
-        let stepsAside = visit != nil && service.mascotStepsAside
+        // Watching a countdown it covers only the timer's mark, as the black
+        // of the closed island, and the reading stays in view.
+        let watches = visit?.kind.watchesTimer == true
+        let stepsAside = visit != nil && service.mascotStepsAside && !watches
         content
             .opacity(stepsAside ? 0 : 1)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: stepsAside)
+            .overlay(alignment: .topLeading) {
+                if watches, let track, let hidden = track.hidden {
+                    Color.black
+                        .frame(width: hidden.lowerBound, height: track.height)
+                        .transition(.opacity)
+                }
+            }
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: watches)
             .overlay(alignment: .top) {
                 if let track, let visit {
                     NotchMascotTrackView(look: NotchMascotSupport.look(), track: track, rests: false, visit: visit,

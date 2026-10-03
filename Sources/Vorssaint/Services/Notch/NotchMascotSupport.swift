@@ -128,6 +128,12 @@ enum NotchMascotReaction: String, CaseIterable {
     case wakeUp
     /// Keep Awake let go: a yawn.
     case yawn
+    /// Keep Awake took hold, or the microphone opened: wide eyes and a bounce.
+    case perk
+    /// The microphone went quiet: eyes shut a moment as it ducks.
+    case hush
+    /// A timer started: a determined look and a little nod.
+    case ready
 
     /// About how long it plays, so the companion stays out for all of it
     /// when it comes out over an activity to play it.
@@ -140,6 +146,9 @@ enum NotchMascotReaction: String, CaseIterable {
         case .confused: return 1.2
         case .wakeUp: return 1.6
         case .yawn: return 1.2
+        case .perk: return 1.0
+        case .hush: return 1.0
+        case .ready: return 1.0
         }
     }
 }
@@ -591,13 +600,26 @@ struct NotchMascotVisit: Equatable {
         /// Out from behind the camera over what the island shows, to play
         /// a reaction where it would rest, and back behind the camera.
         case cameo(NotchMascotReaction)
+        /// The last seconds of a countdown, this long: out over the timer's
+        /// mark to watch the reading run out, and back behind the camera.
+        case countdown(TimeInterval)
+        /// A countdown it watched was paused: back behind the camera.
+        case retreat
 
         /// It ends out of sight, past the strip's end or behind the camera,
         /// so it can cross an activity's strip and leave nothing behind.
         var endsOutOfSight: Bool {
             switch self {
-            case .pass, .cameo: return true
+            case .pass, .cameo, .countdown, .retreat: return true
             case .lap, .home: return false
+            }
+        }
+
+        /// It stands over the timer's mark only, and the reading stays in view.
+        var watchesTimer: Bool {
+            switch self {
+            case .countdown, .retreat: return true
+            default: return false
             }
         }
     }
@@ -634,6 +656,15 @@ struct NotchMascotTrack: Equatable {
     /// island's top so it never brushes the screen's edge or a capsule's.
     func hop(_ share: CGFloat) -> CGFloat {
         min(size * share, max(1, baseline - size / 2 - ceiling - (hidden == nil ? 1 : 2)))
+    }
+
+    /// The same track with its resting place on the camera's left.
+    var leftSide: NotchMascotTrack {
+        guard mirrored else { return self }
+        var left = self
+        left.mirrored = false
+        left.rest = width - rest
+        return left
     }
 
     /// Where it says hello across the strip: past the camera, as far from it
@@ -676,8 +707,15 @@ enum NotchMascotMotion {
         case .pass: return passDuration
         case .home: return homeDuration
         case .cameo(let reaction): return cameoArrival + cameoHold(reaction) + cameoExit
+        case .countdown(let total): return total + countdownLinger + cameoExit
+        case .retreat: return cameoExit
         }
     }
+
+    /// How long before a countdown runs out the companion comes to watch it.
+    static let countdownLead: TimeInterval = 5
+    /// It stays past the end for a beat, under the notice that takes over.
+    static let countdownLinger: TimeInterval = 0.1
 
     /// How long a cameo stays where it landed: its reaction and a beat after it.
     static func cameoHold(_ reaction: NotchMascotReaction) -> TimeInterval { reaction.length + 0.3 }
@@ -685,12 +723,20 @@ enum NotchMascotMotion {
     /// A stroll of `kind`. Resting right of the camera, it walks the left
     /// side's stroll seen in a mirror.
     static func path(for kind: NotchMascotVisit.Kind, on track: NotchMascotTrack) -> NotchMascotPath {
+        // A countdown is watched from the camera's left, over the timer's
+        // mark, whichever side it rests on: the reading is on the right.
+        switch kind {
+        case .countdown(let total): return countdown(on: track.leftSide, total: total)
+        case .retreat: return retreat(on: track.leftSide)
+        default: break
+        }
         guard track.mirrored else {
             switch kind {
             case .lap: return lap(on: track)
             case .pass: return pass(on: track)
             case .home: return home(on: track)
             case .cameo(let reaction): return cameo(on: track, hold: cameoHold(reaction))
+            case .countdown, .retreat: return NotchMascotPath()
             }
         }
         var left = track
@@ -785,6 +831,47 @@ enum NotchMascotMotion {
         return sample([.stay(0.06), .hop(to: track.rest, cameoArrival - 0.06, height: track.hop(0.2)), .stay(hold),
                        .hop(to: behind, cameoExit, height: track.hop(0.16))],
                       start: behind, track: track, duration: duration)
+    }
+
+    /// The last `total` seconds of a countdown: out from behind the camera
+    /// over the timer's mark, eyes on the reading, a small hop with every
+    /// second that goes, and back behind the camera just after it runs out.
+    static func countdown(on track: NotchMascotTrack, total: TimeInterval) -> NotchMascotPath {
+        let size = track.size
+        let duration = total + countdownLinger + cameoExit
+        guard let hidden = track.hidden else {
+            return sample([.stay(duration)], start: -size, track: track, duration: duration)
+        }
+        let behind = hidden.lowerBound + size / 2 + 1
+        var steps: [Step] = [.stay(0.06), .hop(to: track.rest, cameoArrival - 0.06, height: track.hop(0.2))]
+        var time = cameoArrival
+        // The reading changes on every whole second left; it hops just as it does.
+        let ticks = stride(from: total.rounded(.up) - 1, through: 1, by: -1)
+            .map { total - $0 }
+            .filter { $0 - 0.15 > time + 0.1 }
+        for tick in ticks {
+            steps.append(.stay(tick - 0.15 - time))
+            steps.append(.hop(to: track.rest, 0.3, height: track.hop(0.1)))
+            time = tick + 0.15
+        }
+        steps.append(.stay(max(0, total + countdownLinger - time)))
+        steps.append(.hop(to: behind, cameoExit, height: track.hop(0.16)))
+        var path = sample(steps, start: behind, track: track, duration: duration)
+        // Its eyes stay on the reading while it watches.
+        path.gaze = zip(path.keyTimes, path.gaze).map { keyTime, gaze in
+            let time = keyTime * duration
+            return time >= cameoArrival && time <= total + countdownLinger ? 0.07 : gaze
+        }
+        return path
+    }
+
+    /// Back behind the camera from where it watched a countdown.
+    static func retreat(on track: NotchMascotTrack) -> NotchMascotPath {
+        guard let hidden = track.hidden else {
+            return sample([.stay(cameoExit)], start: -track.size, track: track, duration: cameoExit)
+        }
+        return sample([.hop(to: hidden.lowerBound + track.size / 2 + 1, cameoExit, height: track.hop(0.16))],
+                      start: track.rest, track: track, duration: cameoExit)
     }
 
     private static func sample(_ steps: [Step], start: CGFloat, track: NotchMascotTrack,
@@ -981,6 +1068,13 @@ enum NotchMascotSupport {
     /// Room a wing keeps beyond the companion for it to come out in, so it
     /// stays clear of the strip's rounded end.
     static let wingRoom: CGFloat = 10
+
+    /// What the open island's top row gives it beside the camera: the gap it
+    /// keeps from the camera at rest, itself, and air before the title or the
+    /// actions on that side.
+    static func residentLane(stripHeight: CGFloat) -> CGFloat {
+        8 + size(stripHeight: stripHeight, floats: false) + 6
+    }
 
     /// Where it comes out over an activity's closed strip of `size`, drawn
     /// with `strip`: through a capsule, or in the wing on its side of the

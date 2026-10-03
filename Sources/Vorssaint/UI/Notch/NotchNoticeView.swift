@@ -15,8 +15,16 @@ struct NotchNoticeView: View {
         switch notice.event {
         // A warning reads as one in any agent's color; other AI notices wear it.
         case .agents: return notice.symbol.hasPrefix("exclamationmark") ? .orange : notice.agent?.tint ?? .white
+        // The timer's notice keeps the orange its strip and page wear.
+        case .timer: return .orange
         default: return .white
         }
+    }
+    /// The words of a timer's notice share its orange too.
+    private var textTint: Color { notice.event == .timer ? .orange : .white }
+    /// With the companion on, it stands in for the symbol and reacts.
+    private var companionReaction: NotchMascotReaction? {
+        NotchMascotSupport.isEnabled() ? notice.mascot : nil
     }
 
     var body: some View {
@@ -53,7 +61,11 @@ struct NotchNoticeView: View {
                 Group {
                     // A notice about the agent itself wears its mark; warnings
                     // and renewals keep a symbol that says what happened.
-                    if notice.event == .agents, let agent = notice.agent, notice.symbol == agent.symbol {
+                    if let reaction = companionReaction {
+                        NotchMascotView(look: NotchMascotSupport.look(), mood: NotchService.shared.mascotRestingMood,
+                                        size: 18, reaction: reaction)
+                            .frame(width: 18, height: 18)
+                    } else if notice.event == .agents, let agent = notice.agent, notice.symbol == agent.symbol {
                         NotchAgentMark(provider: agent, size: 13)
                     } else if notice.event == .track {
                         NotchTrackArtwork(size: min(18, geometry.stripHeight - 6))
@@ -66,6 +78,7 @@ struct NotchNoticeView: View {
                 .frame(width: 18)
                 Text(notice.level == nil ? notice.title : notice.detail)
                     .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(textTint)
                     .monospacedDigit()
                     .lineLimit(1)
                     .truncationMode(notice.event == .track ? .tail : .middle)
@@ -91,7 +104,7 @@ struct NotchNoticeView: View {
         } else {
             Text(notice.detail)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(textTint.opacity(0.8))
                 .lineLimit(1)
                 .truncationMode(notice.event == .accessory ? .middle : .tail)
                 .frame(maxWidth: .infinity, alignment: .trailing)

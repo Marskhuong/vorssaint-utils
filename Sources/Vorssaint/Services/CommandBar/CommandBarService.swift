@@ -1808,7 +1808,9 @@ final class CommandBarService: ObservableObject {
                                     + (pinnedKeys.contains(entry.stableKey)
                                         ? CommandBarPreferences.pinTieBreak : 0))
         }
-        let ranked = CommandBarSearch.rankedIndexes(candidates: candidates, matching: effectiveQuery)
+        let ranked = CommandBarSearch.featureOrdered(
+            CommandBarSearch.rankedIndexes(candidates: candidates, matching: effectiveQuery),
+            id: { pool[$0].id }, priority: { candidates[$0].priority })
 
         // A fact about the Mac only shows when it was asked for by name:
         // "st" must not answer "Storage" over what the person meant.
@@ -2621,8 +2623,11 @@ final class CommandBarService: ObservableObject {
             entry.run(value)
             return
         }
-        farewell = .determined
+        farewell = .happy
         hide()
+        // Back in the island it hops for what was run, unless the command
+        // gives it a reaction of its own, which takes this one's place.
+        NotchService.shared.reactMascot(.celebrate)
         entry.run(value)
     }
 
