@@ -61,6 +61,8 @@ final class NotchMascotRig: NSObject {
     private var dozed = false
     /// When its eyes last went after something: a pointer, a drag or typing.
     private var attended: CFTimeInterval = -.infinity
+    /// When the visit it plays is over, on the media clock.
+    private var visitEnds: CFTimeInterval = 0
     private var blinkRelay: NotchMascotAnimationRelay?
     /// Blinks wait until a visit has gone by.
     private var blinksResume: CFTimeInterval = 0
@@ -274,7 +276,7 @@ final class NotchMascotRig: NSObject {
     // MARK: Attention
 
     /// Whether a stroll is moving it, with eyes for the way ahead.
-    var isVisiting: Bool { root.animation(forKey: "visit") != nil }
+    var isVisiting: Bool { root.animation(forKey: "visit") != nil && CACurrentMediaTime() < visitEnds }
 
     /// Whether a visit under way has it standing at `stand` just now, where
     /// ending the visit leaves it without a jump.
@@ -290,6 +292,14 @@ final class NotchMascotRig: NSObject {
         blinksResume = CACurrentMediaTime()
         stopBlinking()
         syncBlinking()
+    }
+
+    /// Lets go of the last frame a visit that ended out of sight held, once
+    /// the island has nothing more for it.
+    func clearFinishedVisit() {
+        guard root.animation(forKey: "visit") != nil, CACurrentMediaTime() >= visitEnds else { return }
+        for layer in [root, squasher, face] { layer.removeAnimation(forKey: "visit") }
+        root.removeAnimation(forKey: "visitFade")
     }
     /// It grew sleepy on its own after a long rest.
     var isDozing: Bool { dozed }
@@ -581,11 +591,17 @@ final class NotchMascotRig: NSObject {
     /// Plays a stroll that began at `start` on the media clock, from where it
     /// should be now. `baseline` is the height of its center in its parent.
     /// With Reduce Motion it does not walk, and greets at `stand` instead.
+    /// `holdsEnd` keeps it where the visit ends, out of sight, until what
+    /// comes next takes over: the timer that ends a visit can fire a frame
+    /// late, and it stood in its place for that frame.
     func playVisit(_ path: NotchMascotPath, greeting: NotchMascotMood, baseline: CGFloat, stand: CGPoint,
-                   start: CFTimeInterval) {
+                   start: CFTimeInterval, holdsEnd: Bool = false) {
         guard size > 0, path.duration > 0, path.x.count == path.keyTimes.count else { return }
         let now = CACurrentMediaTime()
-        guard now < start + path.duration else { return }
+        // One that already ended out of sight still holds its last frame
+        // for a strip drawn after it, until the island moves on.
+        guard now < start + path.duration || (holdsEnd && !reduceMotion) else { return }
+        visitEnds = start + path.duration
         if reduceMotion {
             // No stroll: it fades in where it would greet, says hello and fades out.
             let still = CAKeyframeAnimation(keyPath: "position")
@@ -613,6 +629,10 @@ final class NotchMascotRig: NSObject {
         walk.duration = path.duration
         walk.beginTime = start
         walk.calculationMode = .linear
+        if holdsEnd {
+            walk.fillMode = .forwards
+            walk.isRemovedOnCompletion = false
+        }
         root.add(walk, forKey: "visit")
         let squash = CAKeyframeAnimation(keyPath: "transform")
         squash.values = path.squash.map { NSValue(caTransform3D: squashed($0)) }
@@ -1026,13 +1046,15 @@ final class NotchMascotHostView: NSView {
             // Ended early while it stands in its place, as when what it
             // reacted over went away: it stays there rather than leave.
             if mascot.isVisiting, mascot.stands(at: stand) { mascot.endVisit() }
+            else if !mascot.isVisiting { mascot.clearFinishedVisit() }
             return
         }
         guard visit.id != playedVisit else { return }
         playedVisit = visit.id
         cameoWork?.cancel(); cameoWork = nil
         mascot.wake(animated: false)
-        mascot.playVisit(path(), greeting: visit.greeting, baseline: baseline, stand: stand, start: visit.start)
+        mascot.playVisit(path(), greeting: visit.greeting, baseline: baseline, stand: stand, start: visit.start,
+                         holdsEnd: visit.kind.endsOutOfSight)
         guard let reaction = visit.kind.reaction else { return }
         // A strip drawn again after it landed picks the visit up there, and
         // does not play the reaction late. Lingering, it is already there.
