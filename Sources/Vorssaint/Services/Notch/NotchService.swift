@@ -3773,8 +3773,12 @@ extension NotchService {
     }
 
     /// Hands a waiting reaction to the companion once the closed island shows
-    /// with room for it, and no visit is under way.
+    /// with room for it, and no visit is under way. A countdown it watches
+    /// ends once the timer's strip is no longer the one the island shows.
     fileprivate func flushMascotReaction() {
+        if mascotVisit?.kind.watchesTimer == true, compactActivity != .timer {
+            endMascotCountdown(retreating: false)
+        }
         guard let pending = pendingMascotReaction else { return }
         let now = CACurrentMediaTime()
         guard now <= pending.deadline, NotchMascotSupport.isEnabled() else { pendingMascotReaction = nil; return }
