@@ -1006,6 +1006,25 @@ final class NotchMascotHostView: NSView {
         applyPlacement()
     }
 
+    /// Grows or shrinks it about the middle of this view, as from one size
+    /// of it to another.
+    func scale(from start: CGFloat, to end: CGFloat, duration: CFTimeInterval,
+               timing: CAMediaTimingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        stage.removeAnimation(forKey: "scale")
+        stage.transform = CATransform3DMakeScale(end, end, 1)
+        if duration > 0, start != end, !mascot.reduceMotion {
+            let grow = CABasicAnimation(keyPath: "transform")
+            grow.fromValue = NSValue(caTransform3D: CATransform3DMakeScale(start, start, 1))
+            grow.toValue = NSValue(caTransform3D: CATransform3DMakeScale(end, end, 1))
+            grow.duration = duration
+            grow.timingFunction = timing
+            stage.add(grow, forKey: "scale")
+        }
+        CATransaction.commit()
+    }
+
     /// Where it stands, its center in this view or nil for the middle, and
     /// where it can be seen: nil everywhere, or only inside `visible`.
     func place(at center: CGPoint?, visible: [CGRect]?) {
@@ -1018,7 +1037,9 @@ final class NotchMascotHostView: NSView {
         let visible = placement.visible
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        stage.frame = bounds
+        // Bounds and position rather than a frame, which a scaled stage has none of.
+        stage.bounds = CGRect(origin: .zero, size: bounds.size)
+        stage.position = CGPoint(x: bounds.midX, y: bounds.midY)
         if mascot.root.position != center { mascot.root.position = center }
         if let visible {
             let path = CGMutablePath()

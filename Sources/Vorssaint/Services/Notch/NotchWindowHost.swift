@@ -134,10 +134,15 @@ final class NotchWindowHost: NSObject, CAAnimationDelegate {
     /// The companion stands in the window's own layer while the island opens
     /// or closes around it, sliding from `from` to `to`, its centre's offset
     /// from the camera's, with its centre `baseline` below the top.
+    /// `scale` grows or shrinks it on the way, as into or out of a notice,
+    /// where it is drawn smaller. `trailsGrowth` starts it slowly, for a way
+    /// out toward an edge the island is still growing to.
+    /// `hop` lifts it in an arc on the way, as it hops back home.
     func bridgeMascot(look: NotchMascotLook, size: CGFloat, mood: NotchMascotMood, from: CGFloat, to: CGFloat,
-                      baseline: CGFloat, duration: CFTimeInterval) {
+                      baseline: CGFloat, duration: CFTimeInterval, scale: (from: CGFloat, to: CGFloat) = (1, 1),
+                      trailsGrowth: Bool = false, hop: CGFloat = 0) {
         canvas.showMascotBridge(look: look, size: size, mood: mood, from: from, to: to, baseline: baseline,
-                                duration: duration)
+                                duration: duration, scale: scale, trailsGrowth: trailsGrowth, hop: hop)
     }
 
     func endMascotBridge() { canvas.hideMascotBridge() }
@@ -1566,8 +1571,13 @@ private final class NotchCanvas: NSView {
     }
 
     func showMascotBridge(look: NotchMascotLook, size: CGFloat, mood: NotchMascotMood, from: CGFloat, to: CGFloat,
-                          baseline: CGFloat, duration: CFTimeInterval) {
+                          baseline: CGFloat, duration: CFTimeInterval, scale: (from: CGFloat, to: CGFloat),
+                          trailsGrowth: Bool, hop: CGFloat) {
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        // Toward an edge still growing, it starts slowly and lets the edge
+        // lead; otherwise it sets off at once and settles.
+        let timing = trailsGrowth ? CAMediaTimingFunction(controlPoints: 0.6, 0, 0.3, 1)
+            : CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
         mascotBridgeSpot = (to, baseline, size)
         // Its layer is its own, which Core Animation would fade in and move
         // from where it last was.
@@ -1578,6 +1588,7 @@ private final class NotchCanvas: NSView {
         layoutMascotBridge()
         mascotBridge.place(at: nil, visible: nil)
         mascotBridge.layer?.removeAnimation(forKey: "slide")
+        mascotBridge.scale(from: scale.from, to: scale.to, duration: duration, timing: timing)
         mascotBridge.isHidden = false
         CATransaction.commit()
         guard !reduceMotion, abs(from - to) > 0.25, let layer = mascotBridge.layer else { return }
@@ -1587,8 +1598,19 @@ private final class NotchCanvas: NSView {
         slide.toValue = 0
         slide.isAdditive = true
         slide.duration = duration
-        slide.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
+        slide.timingFunction = timing
         layer.add(slide, forKey: "slide")
+        layer.removeAnimation(forKey: "hop")
+        guard hop > 0 else { return }
+        // Up and down again over the first part of the way, the canvas
+        // counting down from its top.
+        let arc = CAKeyframeAnimation(keyPath: "position.y")
+        arc.values = [0, -hop, 0]
+        arc.keyTimes = [0, 0.3, 0.62]
+        arc.timingFunctions = [CAMediaTimingFunction(name: .easeOut), CAMediaTimingFunction(name: .easeIn)]
+        arc.isAdditive = true
+        arc.duration = duration
+        layer.add(arc, forKey: "hop")
     }
 
     func reactMascotBridge(_ event: NotchMascotReactionEvent, lift: CGFloat) {
@@ -1601,7 +1623,9 @@ private final class NotchCanvas: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         mascotBridge.layer?.removeAnimation(forKey: "slide")
+        mascotBridge.layer?.removeAnimation(forKey: "hop")
         mascotBridge.isHidden = true
+        mascotBridge.scale(from: 1, to: 1, duration: 0)
         CATransaction.commit()
     }
 

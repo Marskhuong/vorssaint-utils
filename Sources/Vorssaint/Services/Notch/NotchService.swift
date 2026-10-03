@@ -49,6 +49,17 @@ struct NotchNotice: Equatable {
         notification?.accessibilityText ?? [title, detail].filter { !$0.isEmpty }.joined(separator: ", ")
     }
 
+    /// Room a closed notice keeps inside its curved ends.
+    static func inset(wing: CGFloat) -> CGFloat { min(16, wing / 6) }
+
+    /// Where the companion stands in this notice, as an offset of its centre
+    /// from the camera's: at the leading end, past the inset, since a notice
+    /// that carries it reads from the ends.
+    func mascotOffset(in geometry: NotchGeometry) -> CGFloat {
+        let wing = geometry.noticeWingWidth(preferred: preferredWingWidth)
+        return -(geometry.noticeCameraGap / 2 + wing) + Self.inset(wing: wing) + NotchMascotSupport.noticeSize / 2
+    }
+
     func previewContentHeight(width: CGFloat) -> CGFloat {
         guard let notification else { return 0 }
         return NotchNotificationPreviewLayout.contentHeight(for: notification, width: width)
@@ -1995,10 +2006,12 @@ final class NotchService: ObservableObject {
         // restart a window resize or enqueue another layout animation.
         let transition: NotchContentTransition = !noticeCanPresent ? .none
             : notice == nil ? .reveal : notice?.event != incoming.event || noticeExpanded ? .replace : .none
+        let mascotFrom = mascotNoticeBridgeStart(for: incoming)
         mutatePresentation(transitionContent: transition) {
             notice = incoming
             noticeExpanded = keepsPreview
         }
+        if let mascotFrom { bridgeMascotIntoNotice(incoming, from: mascotFrom) }
         // A banner arriving under the pointer is held at once, whether the
         // pointer was already inside or an opening was pending.
         if let id = incoming.notificationID, holdsNotification, windowHost?.containsHover(NSEvent.mouseLocation) == true {
@@ -2133,11 +2146,13 @@ final class NotchService: ObservableObject {
         let transition: NotchContentTransition = notice == nil || !noticeCanPresent ? .none
             : noticeExpanded ? .dismiss : .depart
         let departing = transition == .depart ? notice : nil
+        let mascotBack = mascotNoticeBridgeBackStart(from: departing)
         mutatePresentation(transitionContent: transition) {
             departingNotice = departing
             notice = nil
             noticeExpanded = false
         }
+        if let mascotBack { bridgeMascotHome(from: mascotBack) }
         guard departingNotice != nil else { return }
         // Without motion the host hides the content at once; so does the view.
         guard windowHost?.departsContent == true else { endDeparture(); return }
@@ -3917,7 +3932,7 @@ extension NotchService {
             : mascotResidentTrack(surfaceWidth: expandedSize.width).hop(0.22)
         // In its own layer before the island changes, which redraws the
         // window at once: shown only afterwards, it was gone for two frames.
-        mascotBridgeWork?.cancel(); mascotBridgeWork = nil
+        endMascotBridgeNow()
         showMascotBridge(from: from, to: from, duration: 0)
         if !mascotBridging { mascotBridging = true }
         return from
@@ -3937,11 +3952,93 @@ extension NotchService {
         // As long as the content takes to arrive: a reveal or a dismissal.
         let duration: TimeInterval = opening ? 0.45 : 0.4
         showMascotBridge(from: from, to: opening ? mascotOpenOffset : mascotClosedOffset, duration: duration)
+        scheduleMascotBridgeEnd(after: duration)
+    }
+
+    /// A notice that carries the companion arrives while it rests in view:
+    /// it stays in sight and steps into the notice, from beside the camera
+    /// to the notice's end, a little smaller, as the notice comes in. Its
+    /// centre's offset from the camera's before, nil when it is not there.
+    func mascotNoticeBridgeStart(for incoming: NotchNotice) -> CGFloat? {
+        // Another notice in place of the one it stepped into ends its step.
+        if mascotBridging, notice != nil { endMascotBridgeNow() }
+        guard incoming.mascot != nil, notice == nil, noticeCanPresent, mascotVisit == nil,
+              NotchMascotSupport.isEnabled(), geometry.isNotched, !geometry.floats,
+              !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+              mascotRestsInView, canHostMascotVisit() else { return nil }
+        endMascotBridgeNow()
+        let from = mascotClosedOffset
+        showMascotBridge(from: from, to: from, duration: 0)
+        mascotBridging = true
+        return from
+    }
+
+    func bridgeMascotIntoNotice(_ shown: NotchNotice, from: CGFloat) {
+        guard notice == shown, let reaction = shown.mascot else { endMascotBridgeNow(); return }
+        let scale = mascotNoticeScale
+        // As long as the notice takes to come in.
+        let duration: TimeInterval = 0.45
+        showMascotBridge(from: from, to: shown.mascotOffset(in: geometry), duration: duration, scale: (1, scale),
+                         trailsGrowth: true)
+        // On the way it plays the notice's reaction, in step with the notice's own.
+        if NotchMascotSupport.reacts() {
+            windowHost?.reactMascotBridge(NotchMascotReactionEvent(id: UUID(), reaction: reaction,
+                                                                   start: CACurrentMediaTime()),
+                                          lift: NotchMascotSupport.noticeSize * 0.32 / scale)
+        }
+        scheduleMascotBridgeEnd(after: duration)
+    }
+
+    /// The notice it stood in leaves while it rests in view: it steps back
+    /// out to its place beside the camera, growing to its size there. Its
+    /// centre's offset in the notice, nil when it was not in one.
+    func mascotNoticeBridgeBackStart(from ending: NotchNotice?) -> CGFloat? {
+        guard let ending, ending.mascot != nil, NotchMascotSupport.isEnabled(), mascotVisit == nil,
+              geometry.isNotched, !geometry.floats, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+              mascotRestsInView else { return nil }
+        // Where the notice draws it, before the notice starts to leave.
+        endMascotBridgeNow()
+        let from = ending.mascotOffset(in: geometry)
+        let scale = mascotNoticeScale
+        showMascotBridge(from: from, to: from, duration: 0, scale: (scale, scale))
+        mascotBridging = true
+        return from
+    }
+
+    func bridgeMascotHome(from: CGFloat) {
+        // Only with nothing over the resting island once the notice is gone.
+        guard mascotRestsInView, canHostMascotVisit() else { endMascotBridgeNow(); return }
+        // The notice fades out, and the resting island back in, meanwhile.
+        let duration: TimeInterval = 0.45
+        // A little hop home, over the notice's words as they fade.
+        showMascotBridge(from: from, to: mascotClosedOffset, duration: duration, scale: (mascotNoticeScale, 1),
+                         hop: mascotClosedTrack.hop(0.22))
+        scheduleMascotBridgeEnd(after: duration)
+    }
+
+    /// How much smaller a notice draws it than its resting place does.
+    private var mascotNoticeScale: CGFloat {
+        NotchMascotSupport.noticeSize / NotchMascotSupport.size(stripHeight: geometry.stripHeight, floats: false)
+    }
+
+    private func showMascotBridge(from: CGFloat, to: CGFloat, duration: TimeInterval,
+                                  scale: (from: CGFloat, to: CGFloat) = (1, 1), trailsGrowth: Bool = false,
+                                  hop: CGFloat = 0) {
+        windowHost?.bridgeMascot(look: NotchMascotSupport.look(),
+                                 size: NotchMascotSupport.size(stripHeight: geometry.stripHeight, floats: false),
+                                 mood: mascotRestingMood, from: from, to: to,
+                                 baseline: geometry.stripHeight / 2 + 0.5, duration: duration, scale: scale,
+                                 trailsGrowth: trailsGrowth, hop: hop)
+    }
+
+    /// Once the content it stood in for has come in: the strip, page or
+    /// notice beneath shows it again, and a frame later the stand-in goes.
+    private func scheduleMascotBridgeEnd(after duration: TimeInterval) {
+        mascotBridgeWork?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.mascotBridgeWork = nil
             self.mascotBridging = false
-            // A frame later, once the strip or the page draws it again beneath.
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
                 guard let self, !self.mascotBridging else { return }
                 self.windowHost?.endMascotBridge()
@@ -3951,11 +4048,11 @@ extension NotchService {
         DispatchQueue.main.asyncAfter(deadline: .now() + duration, execute: work)
     }
 
-    private func showMascotBridge(from: CGFloat, to: CGFloat, duration: TimeInterval) {
-        windowHost?.bridgeMascot(look: NotchMascotSupport.look(),
-                                 size: NotchMascotSupport.size(stripHeight: geometry.stripHeight, floats: false),
-                                 mood: mascotRestingMood, from: from, to: to,
-                                 baseline: geometry.stripHeight / 2 + 0.5, duration: duration)
+    /// A step under way ends at once, the companion back where it is drawn.
+    private func endMascotBridgeNow() {
+        mascotBridgeWork?.cancel(); mascotBridgeWork = nil
+        if mascotBridging { mascotBridging = false }
+        windowHost?.endMascotBridge()
     }
 
     /// Where it rests in the closed island.

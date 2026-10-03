@@ -1300,6 +1300,9 @@ enum NotchMascotSupport {
     /// stays clear of the strip's rounded end.
     static let wingRoom: CGFloat = 10
 
+    /// Its size in a notice it stands in, in place of the notice's symbol.
+    static let noticeSize: CGFloat = 18
+
     /// What the open island's top row gives it beside the camera: the gap it
     /// keeps from the camera at rest, itself, and air before the title or the
     /// actions on that side.

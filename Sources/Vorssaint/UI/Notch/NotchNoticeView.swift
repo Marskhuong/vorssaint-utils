@@ -7,10 +7,13 @@ import SwiftUI
 struct NotchNoticeView: View {
     let notice: NotchNotice
     let geometry: NotchGeometry
+    /// The window's own layer shows the companion stepping in from its rest
+    /// and out again, and the notice leaves its own out meanwhile.
+    var hidesMascot = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var wingWidth: CGFloat { geometry.noticeWingWidth(preferred: notice.preferredWingWidth) }
-    private var inset: CGFloat { min(16, wingWidth / 6) }
+    private var inset: CGFloat { NotchNotice.inset(wing: wingWidth) }
     private var tint: Color {
         switch notice.event {
         // A warning reads as one in any agent's color; other AI notices wear it.
@@ -63,9 +66,12 @@ struct NotchNoticeView: View {
                     // A notice about the agent itself wears its mark, and a
                     // warning keeps a symbol that says what happened.
                     if let reaction = companionReaction {
+                        let size = NotchMascotSupport.noticeSize
                         NotchMascotView(look: NotchMascotSupport.look(), mood: NotchService.shared.mascotRestingMood,
-                                        size: 18, reaction: NotchMascotSupport.reacts() ? reaction : nil)
-                            .frame(width: 18, height: 18)
+                                        size: size, reaction: NotchMascotSupport.reacts() ? reaction : nil)
+                            .frame(width: size, height: size)
+                            .opacity(hidesMascot ? 0 : 1)
+                            .animation(nil, value: hidesMascot)
                     } else if notice.event == .agents, let agent = notice.agent, notice.symbol == agent.symbol {
                         NotchAgentMark(provider: agent, size: 13)
                     } else if notice.event == .track {

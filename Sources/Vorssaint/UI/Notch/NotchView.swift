@@ -151,7 +151,7 @@ struct NotchView: View {
                                                    size: service.notice == nil ? service.capsuleNoticeSurface(notice)
                                                        : service.surfaceSize)
                         } else {
-                            NotchNoticeView(notice: notice, geometry: service.geometry)
+                            NotchNoticeView(notice: notice, geometry: service.geometry, hidesMascot: service.mascotBridging)
                         }
                     }
                     .contentShape(Rectangle())
