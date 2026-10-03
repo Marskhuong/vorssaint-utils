@@ -125,6 +125,7 @@ enum NotchPresentationRefreshContract {
         var onPresent: ((CGSize) -> Void)?
         var usesGlass = false
         var revealFromHidden = false
+        var steady = false
         var outlineEnabled = false
         var outlineColor = NSColor.white
         var transitions: [NotchContentTransition] = []
@@ -134,8 +135,9 @@ enum NotchPresentationRefreshContract {
         }
         func present(size: CGSize, geometry: NotchGeometry, animated: Bool,
                      transitionContent: NotchContentTransition, quickAccess: NotchQuickAccessConfiguration?,
-                     revealFromHidden: Bool, usesGlass: Bool) {
+                     revealFromHidden: Bool, usesGlass: Bool, steady: Bool) {
             transitions.append(transitionContent)
+            self.steady = steady
             departsContent = transitionContent == .depart
             self.usesGlass = usesGlass
             self.revealFromHidden = revealFromHidden
@@ -149,6 +151,7 @@ enum NotchPresentationRefreshContract {
         }
     }
     class State: ObservableObject {
+        var noticeFitsInPlace = false
         var activitySelection = NotchActivitySelection()
         var compactActivities: [NotchCompactActivity] = []
         func compactCompanions(of primary: NotchCompactActivity) -> [NotchCompactActivity] { [] }
@@ -237,6 +240,7 @@ enum NotchPresentationRefreshContract {
                                          timerHasSession: session.hasSession,
                                          timerMode: session.hasSession ? session.mode : mode)
         }
+        var surfaceShift: CGFloat { 0 }
         func syncHiddenHoverMonitoring() {}
         func schedulePointerFollow() {}
         func syncMirrors() {}

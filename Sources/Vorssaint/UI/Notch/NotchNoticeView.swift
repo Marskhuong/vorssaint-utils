@@ -12,8 +12,7 @@ struct NotchNoticeView: View {
     var hidesMascot = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var wingWidth: CGFloat { geometry.noticeWingWidth(preferred: notice.preferredWingWidth) }
-    private var inset: CGFloat { NotchNotice.inset(wing: wingWidth) }
+    private var wings: NotchNoticeWings { notice.wings(in: geometry) }
     private var tint: Color {
         switch notice.event {
         // A warning reads as one in any agent's color; other AI notices wear it.
@@ -34,19 +33,31 @@ struct NotchNoticeView: View {
     var body: some View {
         HStack(spacing: 0) {
             leading
-                .padding(.leading, inset)
+                .padding(.leading, notice.inset(wing: wings.leading))
                 .padding(.trailing, notice.cameraGap)
-                .frame(width: wingWidth, height: geometry.stripHeight)
+                .frame(width: wings.leading, height: geometry.stripHeight)
                 .clipped()
             Color.clear.frame(width: geometry.noticeCameraGap)
             trailing
-                .padding(.trailing, inset)
+                .padding(.trailing, notice.inset(wing: wings.trailing))
                 .padding(.leading, notice.cameraGap)
-                .frame(width: wingWidth, height: geometry.stripHeight)
+                .frame(width: wings.trailing, height: geometry.stripHeight)
                 .clipped()
         }
         .foregroundStyle(.white)
         .frame(height: geometry.stripHeight)
+        // Each side is as wide as what it shows, so the island reaches
+        // further toward the wider one and the camera's gap stays over it.
+        .offset(x: (wings.trailing - wings.leading) / 2)
+        // A new reading that needs another width, as a level passing 99%,
+        // moves its mark and meter with the island's steady ease, not ahead of it.
+        // Keyed on the notice's own widths, so a display change does not ease it.
+        .animation(reduceMotion ? nil : .spring(duration: NotchMotion.steadyWidth.duration, bounce: 0),
+                   value: notice.preferredWings)
+        .transaction { $0.disablesAnimations = false }
+        // Another kind of notice is drawn anew at its place, as the island
+        // springs to it, rather than easing out of the last one's layout.
+        .id(notice.event)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(notice.accessibilityText)
     }
@@ -106,11 +117,13 @@ struct NotchNoticeView: View {
 
     @ViewBuilder private var trailing: some View {
         if let content = notice.notification {
+            // At the far end, as far from it as the sender is from the other
+            // one, with the air that fits it beside the camera.
             Text(content.compactDetail)
                 .font(Font(NotchNotificationBannerLayout.messageFont as CTFont))
                 .foregroundStyle(.white.opacity(0.85))
-                .lineLimit(geometry.stripHeight >= 30 ? 2 : 1)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .lineLimit(NotchNotificationBannerLayout.messageLines(stripHeight: geometry.stripHeight))
+                .frame(maxWidth: .infinity, alignment: .trailing)
         } else if let level = notice.level {
             NotchMeter(value: level, height: 5, tint: tint)
                 .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: level)

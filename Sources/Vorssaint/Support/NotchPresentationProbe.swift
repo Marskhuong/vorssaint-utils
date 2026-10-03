@@ -193,9 +193,11 @@ enum NotchPresentationProbe {
                 scale: screen.backingScaleFactor, statusBarThickness: NSStatusBar.system.thickness))
         let notice = NotchNotice(event: .accessory, title: FeatureStrings.notchActivities(L10n.shared.language).connected,
                                 detail: title, symbol: NotchAccessorySupport.symbol(name: title, majorClass: 0x04, minorClass: 0x06))
-        let size = geometry.noticeSize(wingWidth: notice.preferredWingWidth)
+        let size = geometry.noticeSize(wings: notice.wings(in: geometry))
+        var shifted = geometry
+        shifted.surfaceShift = geometry.noticeShift(notice.wings(in: geometry))
         let content = NotchNoticeView(notice: notice, geometry: geometry)
-            .frame(width: size.width, height: size.height).background(.black)
+            .frame(width: size.width, height: size.height).background(Color.black.offset(x: shifted.surfaceShift))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         let idle = geometry.restingSize(showsContent: false)
         let host = NotchWindowHost(content: AnyView(content), geometry: geometry, size: idle)
@@ -203,7 +205,7 @@ enum NotchPresentationProbe {
         host.panel.title = "Connection preview"
         host.panel.orderFrontRegardless()
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-            host.present(size: size, geometry: geometry, animated: true, transitionContent: .reveal)
+            host.present(size: size, geometry: shifted, animated: true, transitionContent: .reveal)
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 1 + NotchEvent.accessory.duration) {
             host.present(size: idle, geometry: geometry, animated: true, transitionContent: .dismiss)
@@ -698,6 +700,39 @@ enum NotchPresentationProbe {
             if !matchesNativeFrame(host.panel.frame, geometry.frame(for: size)) { failures.append("horizontal feedback did not settle") }
             host.present(size: geometry.collapsed, geometry: geometry, animated: true, transitionContent: .dismiss)
             advance(0.55)
+        }
+        // A notice whose sides differ reaches further toward its wider one,
+        // its centre travelling with its width, so the camera's gap stays put.
+        if !capsule {
+            func drawnShift() -> CGFloat { host.visibleFrame.midX - screen.frame.midX }
+            let lopsided = NotchNoticeWings(leading: 160, trailing: 40)
+            var shifted = geometry
+            shifted.surfaceShift = geometry.noticeShift(lopsided)
+            let size = geometry.noticeSize(wings: lopsided)
+            host.present(size: size, geometry: shifted, animated: true, transitionContent: .reveal)
+            if !reduceMotion, abs(drawnShift()) > 1 { failures.append("a lopsided notice jumped sideways as it began") }
+            advance(0.09)
+            if !reduceMotion, !(drawnShift() < -0.5 && drawnShift() > shifted.surfaceShift + 0.5) {
+                failures.append("a lopsided notice's centre did not travel with its width")
+            }
+            advance(0.6)
+            if !matchesNativeFrame(host.panel.frame, shifted.frame(for: size)) || abs(drawnShift() - shifted.surfaceShift) > 0.5 {
+                failures.append("a lopsided notice did not settle toward its wider side")
+            }
+            let mirrored = NotchNoticeWings(leading: 40, trailing: 120)
+            var other = geometry
+            other.surfaceShift = geometry.noticeShift(mirrored)
+            host.present(size: geometry.noticeSize(wings: mirrored), geometry: other, animated: true, transitionContent: .replace)
+            if !reduceMotion, abs(drawnShift() - shifted.surfaceShift) > 1 {
+                failures.append("a lopsided notice jumped sideways as another replaced it")
+            }
+            advance(0.6)
+            if abs(drawnShift() - other.surfaceShift) > 0.5 { failures.append("a replacing notice did not settle toward its own wider side") }
+            host.present(size: geometry.collapsed, geometry: geometry, animated: true, transitionContent: .dismiss)
+            advance(0.6)
+            if !matchesNativeFrame(host.panel.frame, geometry.frame(for: geometry.collapsed)) || abs(drawnShift()) > 0.5 {
+                failures.append("closing a lopsided notice did not return the island to the camera")
+            }
         }
         noticeHeightLimit = nil
         if maxAnchorError > 0.5 { failures.append("window detached from top: \(maxAnchorError)") }

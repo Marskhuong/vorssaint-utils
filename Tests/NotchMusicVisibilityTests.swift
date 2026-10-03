@@ -353,10 +353,13 @@ enum NotchMusicVisibilityTests {
         suite.expect(service.compactActivity == .downloads, "Nothing for resting music preserves active downloads")
         let notice = NotchNotice(event: .accessory, title: "Wireless Headphones", detail: "Connected", symbol: "headphones")
         service.notice = notice
-        suite.expect(service.surfaceSize == service.geometry.noticeSize(wingWidth: notice.preferredWingWidth)
-               && service.surfaceSize.width > service.geometry.notice.width,
-               "a device notice widens the actual presentation beyond the compact level indicator")
+        suite.expect(service.surfaceSize == service.geometry.noticeSize(wings: notice.wings(in: service.geometry))
+               && service.surfaceSize.width > service.geometry.notice.width
+               && service.surfaceShift == service.geometry.noticeShift(notice.wings(in: service.geometry))
+               && service.surfaceShift < 0,
+               "a device notice widens the actual presentation toward its longer name")
         service.notice = nil
+        suite.expect(service.surfaceShift == 0, "the island returns to the camera's centre once the notice ends")
         suite.expect(service.surfaceSize == service.compactActivityGeometry.compactActivitySize,
                "dismissing a device notice restores the underlying activity's width")
         service.hasKeepAwakeActivity = true

@@ -162,7 +162,7 @@ final class NotchWindowHost: NSObject, CAAnimationDelegate {
 
     func present(size: CGSize, geometry: NotchGeometry, animated: Bool, transitionContent: NotchContentTransition = .none,
                  quickAccess: NotchQuickAccessConfiguration? = nil, revealFromHidden: Bool = false,
-                 hideWhenSettled: Bool = false, usesGlass: Bool = false) {
+                 hideWhenSettled: Bool = false, usesGlass: Bool = false, steady: Bool = false) {
         // Choosing the capsule or the notch redraws the island at once, even
         // at a size it already has.
         canvas.setFloatingGap(geometry.floatingGap)
@@ -241,6 +241,11 @@ final class NotchWindowHost: NSObject, CAAnimationDelegate {
                 .path(in: CGRect(x: 0, y: 0, width: previousWidth, height: 0)).cgPath
             : canvas.visiblePath
         let sameScreen = geometry.screen == currentGeometry.screen
+        // Where the island's centre is now, relative to the camera's; pixel
+        // rounding of a centred island is not a shift.
+        let previousShift = currentGeometry.surfaceShift
+        let drawnShift = canvas.visibleShift.map { abs($0 - previousShift) < 1 ? previousShift : $0 } ?? previousShift
+        let startShift = revealing ? 0 : drawnShift
         animationGeneration += 1
         let generation = animationGeneration
         targetSize = size
@@ -252,8 +257,17 @@ final class NotchWindowHost: NSObject, CAAnimationDelegate {
         }
 
         let start = revealing ? canvas.surfaceSize(of: previousPath) : canvas.visibleSize ?? canvas.surfaceSize(of: previousPath)
+        // Only a width change eases steadily; anything that also grows taller
+        // keeps the island's usual springs.
+        let steady = steady && start.height == size.height
+        let motion = NotchMotion.frames(from: start, to: size, steady: steady)
+        // Each frame's centre, from the new one: it travels with the width.
+        let startOffset = startShift - geometry.surfaceShift
+        let offsets = motion.sizes.map { NotchMotion.offset(at: $0, from: start, to: size, start: startOffset) }
         // Room for the swing past a larger target, and for everything already reserved.
         var envelope = NotchMotion.envelope(from: start, to: size)
+        let reach = zip(motion.sizes, offsets).map { $0.width + 2 * abs($1) }.max() ?? 0
+        envelope.width = max(envelope.width, reach.rounded(.up))
         if !revealing {
             envelope = CGSize(width: max(envelope.width, canvas.bounds.width), height: max(envelope.height, canvas.bounds.height))
         }
@@ -271,7 +285,8 @@ final class NotchWindowHost: NSObject, CAAnimationDelegate {
         // installed. Until then the silhouette and its material keep the
         // shape on screen instead of showing the target for a frame.
         canvas.motionStart = start
-        defer { canvas.motionStart = nil }
+        canvas.motionStartOffset = startOffset
+        defer { canvas.motionStart = nil; canvas.motionStartOffset = 0 }
         canvas.stopMotion()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -285,8 +300,7 @@ final class NotchWindowHost: NSObject, CAAnimationDelegate {
         guard generation == animationGeneration else { CATransaction.commit(); return }
         // Each frame is the island's own silhouette at that size, so its
         // corners and shoulders stay true while the sides swing apart.
-        let motion = NotchMotion.frames(from: start, to: size)
-        let paths = motion.sizes.map(canvas.silhouettePath)
+        let paths = zip(motion.sizes, offsets).map { canvas.silhouettePath(for: $0, offset: $1) }
         // The floating controls emerge once the island reaches its size, while it still swings.
         if quickAccessConfiguration != nil {
             quickAccessContainer?.motion.setVisible(true, animated: canAnimate,
@@ -304,7 +318,7 @@ final class NotchWindowHost: NSObject, CAAnimationDelegate {
         animation.delegate = self
         animation.setValue(generation, forKey: "notchGeneration")
         isAnimating = true
-        canvas.animate(animation, from: paths.first, motion: (start, size))
+        canvas.animate(animation, from: paths.first, motion: (start, size), steady: steady, offset: startOffset)
         CATransaction.commit()
         // The window already has its new frame; its layers go out at once,
         // not at the end of this turn of the run loop, so the screen never
@@ -589,7 +603,13 @@ final class NotchWindowHost: NSObject, CAAnimationDelegate {
     }
 
     var visibleFrame: CGRect {
-        currentGeometry.frame(for: canvas.visibleSize ?? targetSize)
+        var frame = currentGeometry.frame(for: canvas.visibleSize ?? targetSize)
+        // A moving island's centre may still be on its way to the new one;
+        // pixel rounding of one at rest is not a shift.
+        if let shift = canvas.visibleShift, abs(shift - currentGeometry.surfaceShift) >= 1 {
+            frame.origin.x += shift - currentGeometry.surfaceShift
+        }
+        return frame
     }
 
     /// The island's own surface, without the floating controls beside it.
@@ -1294,9 +1314,10 @@ private final class NotchCanvas: NSView {
     }
 
     /// The island's silhouette at `size`, at its place in the reserved area,
-    /// in the mask layer's own coordinates.
-    func silhouettePath(for size: CGSize) -> CGPath {
-        var translation = CGAffineTransform(translationX: islandX(size) - silhouette.frame.minX, y: 0)
+    /// in the mask layer's own coordinates. A moving island whose centre is
+    /// still on its way to the camera's, or away from it, is `offset` from there.
+    func silhouettePath(for size: CGSize, offset: CGFloat = 0) -> CGPath {
+        var translation = CGAffineTransform(translationX: islandX(size) + offset - silhouette.frame.minX, y: 0)
         let path = NotchShape(attached: true, radius: NotchLayout.surfaceRadius(height: size.height),
                               floatingGap: floatingGap)
             .path(in: CGRect(origin: .zero, size: size)).cgPath
@@ -1305,12 +1326,16 @@ private final class NotchCanvas: NSView {
 
     /// The resize the silhouette is running, to draw the material for the
     /// frame about to be shown rather than the one already on screen.
-    private var motionTimeline: (begin: CFTimeInterval, from: CGSize, to: CGSize)?
+    private var motionTimeline: (begin: CFTimeInterval, from: CGSize, to: CGSize, steady: Bool, offset: CGFloat)?
     var motionProbeStart: CGSize? { motionTimeline?.from }
 
-    func animate(_ animation: CAAnimation, from: CGPath?, motion: (from: CGSize, to: CGSize)? = nil) {
+    func animate(_ animation: CAAnimation, from: CGPath?, motion: (from: CGSize, to: CGSize)? = nil, steady: Bool = false,
+                 offset: CGFloat = 0) {
         motionStart = nil
-        motionTimeline = motion.map { (animation.beginTime > 0 ? animation.beginTime : CACurrentMediaTime(), $0.from, $0.to) }
+        motionStartOffset = 0
+        motionTimeline = motion.map {
+            (animation.beginTime > 0 ? animation.beginTime : CACurrentMediaTime(), $0.from, $0.to, steady, offset)
+        }
         silhouette.path = silhouettePath(for: contentSize)
         silhouetteSize = contentSize
         edge.path = silhouette.path
@@ -1364,12 +1389,24 @@ private final class NotchCanvas: NSView {
     fileprivate func advanceBackdrop(to target: CFTimeInterval) {
         backdropTicks += 1
         guard let timeline = motionTimeline else { synchronizeBackdrop(); return }
-        let size = NotchMotion.size(at: max(0, target - timeline.begin), from: timeline.from, to: timeline.to)
-        setBackdropContour(inCanvas(silhouettePath(for: size)))
+        let size = NotchMotion.size(at: max(0, target - timeline.begin), from: timeline.from, to: timeline.to,
+                                    steady: timeline.steady)
+        let offset = NotchMotion.offset(at: size, from: timeline.from, to: timeline.to, start: timeline.offset)
+        setBackdropContour(inCanvas(silhouettePath(for: size, offset: offset)))
     }
 
     /// The size shown while a resize is being prepared, before its motion.
     var motionStart: CGSize?
+    /// How far that size's centre still sits from the island's new one.
+    var motionStartOffset: CGFloat = 0
+
+    /// How far the drawn island's centre sits right of the display's.
+    var visibleShift: CGFloat? {
+        guard let path = visiblePath, let centre = stageCentreX?() else { return nil }
+        let box = path.boundingBoxOfPath
+        guard !box.isNull, box.width > 0 else { return nil }
+        return box.midX - centre
+    }
 
     fileprivate func synchronizeBackdrop() {
         // Immediately use the final model path after stopping the scheduler;
@@ -1698,7 +1735,7 @@ private final class NotchCanvas: NSView {
             edge.frame = maskFrame
         }
         silhouetteSize = motionStart ?? contentSize
-        silhouette.path = silhouettePath(for: silhouetteSize)
+        silhouette.path = silhouettePath(for: silhouetteSize, offset: motionStart == nil ? 0 : motionStartOffset)
         edge.path = silhouette.path
         updateContrast()
         // Keep foreground layout fixed inside the reserved reveal area. Only

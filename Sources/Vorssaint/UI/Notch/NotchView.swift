@@ -40,8 +40,8 @@ struct NotchView: View {
             // the page stops scrolling between cards and the island loses
             // focus. A fill too faint to see keeps the surface in this window,
             // as the black backdrop does.
-            .background(shape.fill(Color.black.opacity(0.01)))
-            .contentShape(shape)
+            .background(shape.offset(x: service.surfaceShift).fill(Color.black.opacity(0.01)))
+            .contentShape(shape.offset(x: service.surfaceShift))
             // The backdrop is a separate, non-interactive hosting view. Claim
             // empty space here so clicks and wheel events stay in this window.
             .onTapGesture { }
@@ -154,7 +154,10 @@ struct NotchView: View {
                             NotchNoticeView(notice: notice, geometry: service.geometry, hidesMascot: service.mascotBridging)
                         }
                     }
-                    .contentShape(Rectangle())
+                    // Beside a camera the notice reaches further toward its
+                    // wider side, and takes clicks all the way to its end.
+                    .contentShape(Rectangle().offset(x: floats ? 0
+                        : service.geometry.noticeShift(notice.wings(in: service.geometry))))
                 }
                 // A floating capsule lights up under the pointer. Beside a
                 // camera the wash would outline the housing, so the notch keeps
