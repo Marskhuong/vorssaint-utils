@@ -254,7 +254,10 @@ final class NotchService: ObservableObject {
     /// Activities arrive on live state before the next one runs, so the
     /// island can still tell the companion was there and crossfade from it.
     private(set) var mascotRestedInView = false {
-        didSet { if oldValue, !mascotRestedInView { mascotLeftRest = CACurrentMediaTime() } }
+        didSet {
+            if oldValue, !mascotRestedInView { mascotLeftRest = CACurrentMediaTime() }
+            if !oldValue, mascotRestedInView { mascotReturnedToRest() }
+        }
     }
     private var mascotLeftRest: CFTimeInterval = -.infinity
     /// At rest in view as of the last refresh, or until a moment ago, since
@@ -3665,9 +3668,45 @@ extension NotchService {
 
     fileprivate func endMascotVisit() {
         mascotVisitWork?.cancel(); mascotVisitWork = nil
-        guard mascotVisit != nil else { return }
+        guard let ended = mascotVisit else { return }
+        // Gone behind the camera from a reaction over an activity that left
+        // meanwhile, it comes back out to its place rather than appear there.
+        if ended.kind.reaction != nil, mascotRestsInView, CACurrentMediaTime() >= ended.start + ended.duration - 0.05,
+           !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            let back = NotchMascotVisit(id: UUID(), kind: .arrive, greeting: .idle, start: CACurrentMediaTime())
+            setMascotVisit(back)
+            let work = DispatchWorkItem { [weak self] in self?.endMascotVisit() }
+            mascotVisitWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + back.duration, execute: work)
+            return
+        }
         setMascotVisit(nil)
         if running, NotchMascotSupport.visits() { scheduleMascotVisit(after: NotchMascotSupport.nextVisitDelay()) }
+    }
+
+    /// Back at rest in view while it reacted over an activity that has gone
+    /// meanwhile: standing in its place, or on its way there, it stays once
+    /// its reaction is over instead of going behind the camera.
+    fileprivate func mascotReturnedToRest() {
+        guard let visit = mascotVisit, let reaction = visit.kind.reaction else { return }
+        let landed = visit.start + (visit.kind == .linger(reaction) ? 0 : NotchMascotMotion.cameoArrival)
+        let now = CACurrentMediaTime()
+        // Already on its way behind the camera, it comes back out once gone.
+        guard now < landed + NotchMascotMotion.cameoHold(reaction) - 0.05 else { return }
+        // It ends where it landed, its reaction playing on there.
+        let wait = max(0, landed + 0.05 - now)
+        mascotVisitWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.mascotVisit?.id == visit.id else { return }
+            if self.mascotRestsInView { self.endMascotVisit(); return }
+            // Something took its place again: it leaves as it came for.
+            let leave = DispatchWorkItem { [weak self] in self?.endMascotVisit() }
+            self.mascotVisitWork = leave
+            DispatchQueue.main.asyncAfter(deadline: .now() + max(0, visit.start + visit.duration - CACurrentMediaTime()),
+                                          execute: leave)
+        }
+        mascotVisitWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + wait, execute: work)
     }
 
     /// Turned on while the closed island rests with nothing else to show, it

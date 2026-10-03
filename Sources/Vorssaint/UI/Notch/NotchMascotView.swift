@@ -275,6 +275,22 @@ final class NotchMascotRig: NSObject {
 
     /// Whether a stroll is moving it, with eyes for the way ahead.
     var isVisiting: Bool { root.animation(forKey: "visit") != nil }
+
+    /// Whether a visit under way has it standing at `stand` just now, where
+    /// ending the visit leaves it without a jump.
+    func stands(at stand: CGPoint) -> Bool {
+        guard let position = root.presentation()?.position else { return false }
+        return abs(position.x - stand.x) < 0.5 && abs(position.y - stand.y) < 0.5
+    }
+
+    /// Ends a visit under way where it stands, and it blinks again.
+    func endVisit() {
+        for layer in [root, squasher, face] { layer.removeAnimation(forKey: "visit") }
+        root.removeAnimation(forKey: "visitFade")
+        blinksResume = CACurrentMediaTime()
+        stopBlinking()
+        syncBlinking()
+    }
     /// It grew sleepy on its own after a long rest.
     var isDozing: Bool { dozed }
 
@@ -1002,7 +1018,13 @@ final class NotchMascotHostView: NSView {
     /// being how high a hop may take it there.
     func playVisit(_ visit: NotchMascotVisit?, path: @autoclosure () -> NotchMascotPath, baseline: CGFloat,
                    stand: CGPoint, lift: CGFloat) {
-        guard let visit, visit.id != playedVisit else { return }
+        guard let visit else {
+            // Ended early while it stands in its place, as when what it
+            // reacted over went away: it stays there rather than leave.
+            if mascot.isVisiting, mascot.stands(at: stand) { mascot.endVisit() }
+            return
+        }
+        guard visit.id != playedVisit else { return }
         playedVisit = visit.id
         cameoWork?.cancel(); cameoWork = nil
         mascot.wake(animated: false)
