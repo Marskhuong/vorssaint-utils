@@ -15,6 +15,9 @@ enum NotchMascotTests {
         strollContracts(suite)
         homecomingContracts(suite)
         cameoContracts(suite)
+        farewellContracts(suite)
+        crossContracts(suite)
+        previewContracts(suite)
         countdownContracts(suite)
         activityTrackContracts(suite)
         reactionContracts(suite)
@@ -37,13 +40,31 @@ enum NotchMascotTests {
         suite.expect(!NotchMascotSupport.isEnabled(in: defaults) && !NotchMascotSupport.visits(in: defaults)
                      && NotchMascotSupport.commandBarStyle(in: defaults) == nil,
                      "the companion is opt-in, and the Command Bar keeps its own window until it is on")
+        defaults.set(true, forKey: DefaultsKey.notchMascotEnabled)
+        suite.expect(!NotchMascotSupport.isEnabled(in: defaults) && !NotchMascotSupport.reacts(in: defaults),
+                     "switched on but not installed on the Features page, it stays away")
+        defaults.set(false, forKey: DefaultsKey.notchMascotEnabled)
+        defaults.set(true, forKey: AppFeature.notchMascot.availabilityKey)
+        suite.expect(!NotchMascotSupport.isEnabled(in: defaults),
+                     "installed, it still waits for its switch")
         suite.expect(NotchMascotSupport.look(in: defaults) == .standard
                      && NotchMascotLook.standard == NotchMascotLook(style: .minimal, shape: .ball, palette: .pearl),
                      "it starts as a pearl ball with two ink eyes")
         defaults.set(true, forKey: DefaultsKey.notchMascotEnabled)
         suite.expect(NotchMascotSupport.isEnabled(in: defaults) && NotchMascotSupport.visits(in: defaults)
+                     && NotchMascotSupport.reacts(in: defaults)
                      && NotchMascotSupport.commandBarStyle(in: defaults) == .droplet,
-                     "turned on, it visits now and then and the Command Bar falls from the island as a drop")
+                     "turned on, it visits now and then, reacts, and the Command Bar falls from the island as a drop")
+        defaults.set(false, forKey: DefaultsKey.notchMascotReactions)
+        suite.expect(NotchMascotSupport.isEnabled(in: defaults) && !NotchMascotSupport.reacts(in: defaults)
+                     && NotchMascotSupport.visits(in: defaults),
+                     "its reactions can be turned off while it still rests and visits")
+        defaults.set(true, forKey: DefaultsKey.notchMascotReactions)
+        defaults.set(false, forKey: AppFeature.notchMascot.availabilityKey)
+        suite.expect(!NotchMascotSupport.isEnabled(in: defaults) && !NotchMascotSupport.visits(in: defaults)
+                     && !NotchMascotSupport.reacts(in: defaults) && NotchMascotSupport.commandBarStyle(in: defaults) == nil,
+                     "uninstalled, it leaves the island and the Command Bar keeps its own window")
+        defaults.set(true, forKey: AppFeature.notchMascot.availabilityKey)
         defaults.set(NotchCommandBarStyle.island.rawValue, forKey: DefaultsKey.notchCommandBarStyle)
         suite.expect(NotchMascotSupport.commandBarStyle(in: defaults) == .island, "the bar can open inside the island instead")
         defaults.set("puddle", forKey: DefaultsKey.notchCommandBarStyle)
@@ -74,16 +95,21 @@ enum NotchMascotTests {
         defaults.set("dragon", forKey: DefaultsKey.notchMascotStyle)
         suite.expect(NotchMascotSupport.look(in: defaults) == .standard, "unknown values from a newer backup fall back")
 
-        let keys = [DefaultsKey.notchMascotEnabled, DefaultsKey.notchMascotVisits, DefaultsKey.notchMascotStyle,
+        let keys = [DefaultsKey.notchMascotEnabled, DefaultsKey.notchMascotVisits, DefaultsKey.notchMascotReactions,
+                    DefaultsKey.notchMascotStyle,
                     DefaultsKey.notchMascotShape, DefaultsKey.notchMascotPalette, DefaultsKey.notchCommandBar,
                     DefaultsKey.notchCommandBarStyle, DefaultsKey.notchMascotSide, DefaultsKey.notchMascotVisitFrequency]
         suite.expect(keys.allSatisfy { Defaults.registeredDefaults[$0] != nil && $0.hasPrefix("notch") }
                      && SettingsBackupSupport.exportKeys().isSuperset(of: keys),
                      "every companion preference travels in a settings backup with the island's")
         suite.expect(Set(NotchMascotShape.allCases.map(\.rawValue)).count == 4
-                     && Set(NotchMascotPalette.allCases.map(\.rawValue)).count == 6
-                     && Set(NotchMascotPalette.allCases.map { "\($0.light)" }).count == 6,
-                     "four shapes and six distinct colors")
+                     && Set(NotchMascotPalette.allCases.map(\.rawValue)).count == 7
+                     && Set(NotchMascotPalette.allCases.map { "\($0.light)" }).count == 7
+                     && Set(NotchMascotPalette.allCases.map { "\($0.shade)" }).count == 7,
+                     "four shapes and seven distinct colors")
+        suite.expect(NotchMascotPalette.allCases.first == .pearl
+                     && ["pearl", "mint", "peach", "lilac", "lemon", "rose"].allSatisfy { NotchMascotPalette(rawValue: $0) != nil },
+                     "every color saved before keeps its name, white first")
         let normal = NotchMascotVisitFrequency.normal.delay
         suite.expect(NotchMascotSupport.nextVisitDelay(.normal, random: 0) == normal.lowerBound
                      && NotchMascotSupport.nextVisitDelay(.normal, random: 1) == normal.upperBound
@@ -112,8 +138,6 @@ enum NotchMascotTests {
     }
 
     private static func faceContracts(_ suite: TestSuite) {
-        suite.expect(Set(NotchMascotMood.showcase) == Set(NotchMascotMood.allCases).subtracting([.idle]),
-                     "the Settings preview shows every face")
         suite.expect(NotchMascotMood.idle.expression.blinks && NotchMascotMood.searching.expression.blinks
                      && !NotchMascotMood.happy.expression.blinks && !NotchMascotMood.love.expression.blinks
                      && !NotchMascotMood.sleepy.expression.blinks && !NotchMascotMood.wink.expression.blinks,
@@ -274,6 +298,94 @@ enum NotchMascotTests {
                 suite.expect(path.x.allSatisfy { abs($0 - track.rest) < 0.01 },
                              "in a capsule it lands where it rests, the drop having risen there")
             }
+        }
+    }
+
+    private static func farewellContracts(_ suite: TestSuite) {
+        let left = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                            floats: false, bodyHeight: 32)
+        let right = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                             floats: false, bodyHeight: 32, side: .right)
+        let capsule = NotchMascotSupport.track(stripWidth: 76, stripHeight: 24, wing: 0, cameraWidth: 0,
+                                               floats: true, bodyHeight: 20)
+        suite.expect(NotchMascotVisit.Kind.farewell.endsOutOfSight && !NotchMascotVisit.Kind.farewell.watchesTimer
+                     && NotchMascotMotion.duration(of: .farewell) < 1,
+                     "a farewell is over in under a second and ends out of sight")
+        for (name, track) in [("left wing", left), ("right wing", right), ("capsule", capsule)] {
+            let path = NotchMascotMotion.path(for: .farewell, on: track)
+            let counts = Set([path.keyTimes.count, path.x.count, path.lift.count, path.squash.count, path.gaze.count])
+            suite.expect(counts.count == 1 && path.keyTimes.first == 0 && path.keyTimes.last == 1
+                         && zip(path.keyTimes, path.keyTimes.dropFirst()).allSatisfy { $0 <= $1 }
+                         && path.greeting.lowerBound == 0 && path.greeting.upperBound > 0.3,
+                         "saying goodbye in a \(name), it smiles at once in one even run of frames")
+            suite.expect(abs((path.x.first ?? 0) - track.rest) < 0.01 && (path.lift.first ?? 1) == 0,
+                         "in a \(name) it starts where it rests, so nothing jumps as it turns to go")
+            suite.expect(path.lift.allSatisfy { track.baseline - $0 - track.size / 2 >= track.ceiling + 1 },
+                         "saying goodbye in a \(name), it never hops into the island's top edge")
+            if let hidden = track.hidden {
+                let end = path.x.last ?? 0
+                suite.expect(end - track.size / 2 >= hidden.lowerBound && end + track.size / 2 <= hidden.upperBound,
+                             "in a \(name) it ends behind the camera, before the wings fold")
+            } else {
+                suite.expect((path.x.last ?? 0) >= track.width + track.size / 2,
+                             "in a capsule it walks out past the far end")
+            }
+        }
+    }
+
+    private static func crossContracts(_ suite: TestSuite) {
+        let left = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                            floats: false, bodyHeight: 32)
+        let right = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                             floats: false, bodyHeight: 32, side: .right)
+        suite.expect(!NotchMascotVisit.Kind.cross.endsOutOfSight && NotchMascotMotion.duration(of: .cross) < 1.6,
+                     "crossing to the camera's other side ends where it rests, in well under two seconds")
+        for (name, track, from) in [("to the left", left, right.rest), ("to the right", right, left.rest)] {
+            let path = NotchMascotMotion.path(for: .cross, on: track)
+            let counts = Set([path.keyTimes.count, path.x.count, path.lift.count, path.squash.count, path.gaze.count])
+            suite.expect(counts.count == 1 && path.keyTimes.first == 0 && path.keyTimes.last == 1
+                         && zip(path.keyTimes, path.keyTimes.dropFirst()).allSatisfy { $0 <= $1 },
+                         "crossing \(name), it is one even run of frames")
+            suite.expect(abs((path.x.first ?? 0) - from) < 0.01 && abs((path.x.last ?? 0) - track.rest) < 0.01,
+                         "crossing \(name), it leaves from where it rested and lands where it now rests, with no jump")
+            if let hidden = track.hidden {
+                let behind = path.x.contains { $0 - track.size / 2 >= hidden.lowerBound && $0 + track.size / 2 <= hidden.upperBound }
+                suite.expect(behind, "crossing \(name), it passes behind the camera")
+            }
+            suite.expect(path.lift.allSatisfy { track.baseline - $0 - track.size / 2 >= track.ceiling + 1 },
+                         "crossing \(name), it never hops into the island's top edge")
+        }
+    }
+
+    private static func previewContracts(_ suite: TestSuite) {
+        let track = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                             floats: false, bodyHeight: 32, side: .right)
+        let big = track.scaled(by: 1.5)
+        suite.expect(big.width == track.width * 1.5 && big.size == track.size * 1.5 && big.rest == track.rest * 1.5
+                     && big.baseline == track.baseline * 1.5 && big.mirrored == track.mirrored
+                     && big.hidden.map { $0.lowerBound == (track.hidden?.lowerBound ?? 0) * 1.5 } == true
+                     && abs(big.hop(0.22) - track.hop(0.22) * 1.5) < 0.001
+                     && abs(big.hop(0.9) - track.hop(0.9) * 1.5) < 0.001,
+                     "the Settings preview's island is the real one scaled, hops and all")
+        let lap = NotchMascotMotion.path(for: .lap, on: track), bigLap = NotchMascotMotion.path(for: .lap, on: big)
+        suite.expect(zip(lap.x, bigLap.x).allSatisfy { abs($0 * 1.5 - $1) < 0.001 }
+                     && zip(lap.lift, bigLap.lift).allSatisfy { abs($0 * 1.5 - $1) < 0.001 }
+                     && lap.keyTimes == bigLap.keyTimes,
+                     "a visit in the preview walks the same way as in the island, only bigger")
+        suite.expect(NotchMascotMoment.allCases.first == .visit && NotchMascotMoment.visit.reaction == nil
+                     && NotchMascotMoment.allCases.dropFirst().allSatisfy { $0.reaction != nil }
+                     && Set(NotchMascotMoment.allCases.compactMap(\.reaction)).count == NotchMascotMoment.allCases.count - 1,
+                     "the preview acts out a visit and one moment for each of its reactions")
+        suite.expect(Set(NotchMascotMoment.allCases.compactMap(\.reaction))
+                        == Set(NotchMascotReaction.allCases).subtracting([.yawn]),
+                     "every reaction but the yawn the preview plays when it is switched off has a moment to try")
+        for language in AppLanguage.allCases {
+            let text = FeatureStrings.notchMascot(language)
+            let names = NotchMascotMoment.allCases.map { text.moment($0, language: language) }
+            suite.expect(names.allSatisfy { !$0.isEmpty } && Set(names).count == names.count
+                         && !text.searchKeywords.contains(where: \.isEmpty)
+                         && NotchMascotPalette.allCases.allSatisfy { !text.palette($0).isEmpty },
+                         "\(language.rawValue) names every moment once, every color, and words for search")
         }
     }
 

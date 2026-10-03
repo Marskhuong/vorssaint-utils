@@ -138,7 +138,6 @@ struct NotchSettings: View {
         .onChange(of: tab) { _, _ in draggingModule = nil; draggingControl = nil }
         .onAppear(perform: consumeModuleHint)
         .onChange(of: router.notchModule) { _, _ in consumeModuleHint() }
-        .onChange(of: router.requestID) { _, _ in consumeModuleHint() }
     }
 
     private var pageScroll: some View {
@@ -155,9 +154,7 @@ struct NotchSettings: View {
     }
 
     /// A section of the island can ask for its own options; the hint is one-shot.
-    /// A search for the companion opens the tab its card is on.
     private func consumeModuleHint() {
-        if router.destination.sectionAnchor == .notchCompanion { tab = .activity }
         guard let module = router.notchModule else { return }
         router.notchModule = nil
         selectedModule = module
@@ -457,8 +454,6 @@ struct NotchSettings: View {
                 }
                 switchRow("menubar.rectangle", text.coverMenus, caption: text.coverMenusHint, isOn: $coversMenus)
             }
-            NotchMascotSettingsCard()
-                .settingsSectionAnchor(.notchCompanion, cornerRadius: 16)
             SettingsCard(title: editor.feedback) {
                 let volumeAvailable = AppFeature.mixer.isAvailable
                 let brightnessAvailable = AppFeature.brightness.isAvailable && brightnessControlEnabled

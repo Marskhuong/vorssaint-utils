@@ -22,7 +22,8 @@ struct NotchNoticeView: View {
     }
     /// The words of a timer's notice share its orange too.
     private var textTint: Color { notice.event == .timer ? .orange : .white }
-    /// With the companion on, it stands in for the symbol and reacts.
+    /// With the companion on, it stands in for the symbol, and reacts unless
+    /// its reactions are off.
     private var companionReaction: NotchMascotReaction? {
         NotchMascotSupport.isEnabled() ? notice.mascot : nil
     }
@@ -63,7 +64,7 @@ struct NotchNoticeView: View {
                     // and renewals keep a symbol that says what happened.
                     if let reaction = companionReaction {
                         NotchMascotView(look: NotchMascotSupport.look(), mood: NotchService.shared.mascotRestingMood,
-                                        size: 18, reaction: reaction)
+                                        size: 18, reaction: NotchMascotSupport.reacts() ? reaction : nil)
                             .frame(width: 18, height: 18)
                     } else if notice.event == .agents, let agent = notice.agent, notice.symbol == agent.symbol {
                         NotchAgentMark(provider: agent, size: 13)

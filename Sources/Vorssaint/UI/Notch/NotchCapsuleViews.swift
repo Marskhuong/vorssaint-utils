@@ -138,13 +138,14 @@ struct NotchCapsuleNoticeView: View {
     }
 
     @ViewBuilder private var mark: some View {
-        // With the companion on, it stands in for the symbol and reacts. A
+        // With the companion on, it stands in for the symbol and reacts, unless
+        // its reactions are off. A
         // notice about the agent itself wears its mark; warnings and renewals
         // keep a symbol that says what happened.
         if NotchMascotSupport.isEnabled(), let reaction = notice.mascot {
             let side = min(CapsuleLayout.symbolWidth, CapsuleLayout.artworkSide(geometry))
             NotchMascotView(look: NotchMascotSupport.look(), mood: NotchService.shared.mascotRestingMood,
-                            size: side, reaction: reaction)
+                            size: side, reaction: NotchMascotSupport.reacts() ? reaction : nil)
                 .frame(width: CapsuleLayout.symbolWidth, height: side)
         } else if notice.event == .agents, let agent = notice.agent, notice.symbol == agent.symbol {
             NotchAgentMark(provider: agent, size: CapsuleLayout.symbolSize).frame(width: CapsuleLayout.symbolWidth)

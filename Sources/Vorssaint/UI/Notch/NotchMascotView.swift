@@ -53,6 +53,9 @@ final class NotchMascotRig: NSObject {
     private let leftEye = CAShapeLayer()
     private let rightEye = CAShapeLayer()
     private var blinks = 0
+    /// It grew sleepy on its own after a long rest, rather than being shown
+    /// so, and anything that happens wakes it.
+    private var dozed = false
     private var blinkRelay: NotchMascotAnimationRelay?
     /// Blinks wait until a visit has gone by.
     private var blinksResume: CFTimeInterval = 0
@@ -158,6 +161,7 @@ final class NotchMascotRig: NSObject {
         guard mood != self.mood else { return }
         let previous = self.mood
         self.mood = mood
+        dozed = false
         if mood != .sleepy { blinks = 0 }
         apply(mood.expression, animated: animated && !reduceMotion)
         guard animated, !reduceMotion, size > 0 else { syncBlinking(); return }
@@ -258,6 +262,7 @@ final class NotchMascotRig: NSObject {
         attention.transform = CATransform3DIdentity
         self.mood = mood
         blinks = 0
+        dozed = false
         apply(mood.expression, animated: false)
     }
 
@@ -415,8 +420,8 @@ final class NotchMascotRig: NSObject {
     /// Reduce Motion it only changes face.
     func react(_ reaction: NotchMascotReaction, lift: CGFloat) {
         guard size > 0 else { return }
-        // Whatever it is, it is awake for it.
-        if mood == .sleepy, reaction != .wakeUp { setMood(.idle, animated: !reduceMotion) }
+        // Whatever it is, it wakes up for it.
+        if dozed, reaction != .wakeUp { setMood(.idle, animated: !reduceMotion) }
         blinks = 0
         let now = CACurrentMediaTime()
         guard !reduceMotion else {
@@ -428,6 +433,7 @@ final class NotchMascotRig: NSObject {
             case .yawn, .hush: flashFace(.sleepy, duration: 1.1)
             case .perk: flashFace(.alert, duration: 1)
             case .ready: flashFace(.determined, duration: 1)
+            case .groove: flashFace(.happy, duration: 1.4)
             }
             return
         }
@@ -455,7 +461,7 @@ final class NotchMascotRig: NSObject {
             wobble()
         case .wakeUp:
             // Heavy eyes, a stretch, and a glad face.
-            if mood == .sleepy { setMood(.idle, animated: false) }
+            if dozed { setMood(.idle, animated: false) }
             flashFace(.sleepy, duration: 0.7)
             stretch(beginTime: now + 0.35, duration: 0.6)
             flashFace(.happy, duration: 0.9, beginTime: now + 0.7, key: "flashAfter")
@@ -488,6 +494,42 @@ final class NotchMascotRig: NSObject {
             nod.duration = 0.5
             nod.beginTime = now + 0.12
             squasher.add(nod, forKey: "nod")
+        case .groove:
+            // It hears the music: smiling eyes, a bob on every beat and a
+            // lean one way and the other, landing a little squashed.
+            flashFace(.happy, duration: reaction.length)
+            let beats = 4
+            let height = max(1, lift * 0.45)
+            var heights: [CGFloat] = [], leans: [CGFloat] = [], squashes: [CATransform3D] = []
+            var times: [NSNumber] = []
+            for step in 0...(beats * 2) {
+                times.append(NSNumber(value: Double(step) / Double(beats * 2)))
+                let up = step % 2 == 1
+                heights.append(up ? -height : 0)
+                leans.append(up ? (step % 4 == 1 ? 0.11 : -0.11) : 0)
+                squashes.append(squashed(up ? -0.05 : step == 0 || step == beats * 2 ? 0 : 0.07))
+            }
+            let bob = CAKeyframeAnimation(keyPath: "transform.translation.y")
+            bob.values = heights
+            bob.keyTimes = times
+            bob.timingFunctions = (0..<(beats * 2)).map {
+                CAMediaTimingFunction(name: $0 % 2 == 0 ? .easeOut : .easeIn)
+            }
+            bob.duration = reaction.length
+            bob.isAdditive = true
+            hopper.add(bob, forKey: "hop")
+            let sway = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+            sway.values = leans
+            sway.keyTimes = times
+            sway.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            sway.duration = reaction.length
+            sway.isAdditive = true
+            tilter.add(sway, forKey: "wobble")
+            let land = CAKeyframeAnimation(keyPath: "transform")
+            land.values = squashes.map { NSValue(caTransform3D: $0) }
+            land.keyTimes = times
+            land.duration = reaction.length
+            squasher.add(land, forKey: "squash")
         }
     }
 
@@ -580,14 +622,14 @@ final class NotchMascotRig: NSObject {
         self.idles = wanted
         if !wanted {
             stopBlinking()
-            if mood == .sleepy, !idles { setMood(.idle, animated: false) }
+            if dozed, !idles { setMood(.idle, animated: false) }
         } else { syncBlinking() }
     }
 
-    /// Wakes it from a long rest.
+    /// Wakes it from a long rest. A face shown sleepy on purpose stays.
     func wake(animated: Bool) {
         blinks = 0
-        if mood == .sleepy { setMood(.idle, animated: animated) }
+        if dozed { setMood(.idle, animated: animated) }
     }
 
     private func syncBlinking() {
@@ -641,6 +683,7 @@ final class NotchMascotRig: NSObject {
         // A long rest makes its eyes heavy, and it stops blinking then.
         if mood == .idle, blinks >= NotchMascotSupport.blinksBeforeSleep(hour: Calendar.current.component(.hour, from: Date())) {
             setMood(.sleepy, animated: true)
+            dozed = true
             return
         }
         syncBlinking()
@@ -968,13 +1011,16 @@ struct NotchMascotTrackView: NSViewRepresentable {
     /// The face it keeps at rest: wide awake while Keep Awake holds the Mac up.
     var mood: NotchMascotMood = .idle
     var reaction: NotchMascotReactionEvent?
+    /// Switched off, the Settings preview shows it asleep: eyes shut, no
+    /// blinking, and no eyes for the pointer.
+    var awake = true
 
     func makeNSView(context: Context) -> NotchMascotHostView {
         NotchMascotHostView(frame: CGRect(x: 0, y: 0, width: track.width, height: track.height))
     }
 
     func updateNSView(_ view: NotchMascotHostView, context: Context) {
-        view.configure(look: look, size: track.size, mood: mood, idles: rests,
+        view.configure(look: look, size: track.size, mood: awake ? mood : .sleepy, idles: rests && awake,
                        reduceMotion: context.environment.accessibilityReduceMotion, animated: true)
         // Off stage at the far end once a visit is over, so nothing jumps
         // when its last frame hands back to where it stands.
@@ -987,7 +1033,7 @@ struct NotchMascotTrackView: NSViewRepresentable {
                               height: track.height * 3)]
         }
         view.place(at: CGPoint(x: x, y: track.baseline), visible: visible)
-        view.followsPointer = rests
+        view.followsPointer = rests && awake
         view.playVisit(visit, path: NotchMascotMotion.path(for: visit?.kind ?? .pass, on: track),
                        baseline: track.baseline, stand: CGPoint(x: track.rest, y: track.baseline),
                        lift: track.hop(0.22))

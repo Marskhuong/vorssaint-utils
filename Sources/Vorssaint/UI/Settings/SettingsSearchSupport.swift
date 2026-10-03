@@ -100,20 +100,6 @@ enum SettingsSearchSupport {
             feature: .brightness)
     }
 
-    /// The island's companion lands on its own card, a tab away from where
-    /// the Dynamic Island page opens.
-    static func notchCompanionItem(language: AppLanguage) -> SettingsSearchItem {
-        let companion = FeatureStrings.notchMascot(language)
-        return SettingsSearchItem(
-            id: .setting(.notchCompanion),
-            destination: FeatureSettingsDestination(.notch, sectionAnchor: .notchCompanion),
-            title: companion.title,
-            icon: "face.smiling",
-            keywords: [FeatureStrings.notch(language).title, companion.visits, companion.robot,
-                       companion.shape, companion.color, companion.commandBar],
-            feature: .notch)
-    }
-
     /// A dedicated page row wins over a generated feature row only when their
     /// IDs, full destinations, and the page's one-to-one feature mapping all
     /// agree. The winning page keeps its stable identity and presentation while

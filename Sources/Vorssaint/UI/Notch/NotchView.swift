@@ -83,7 +83,7 @@ struct NotchView: View {
             if service.showingCommandBar { commandBarPage } else { expanded.overlay(alignment: .top) { residentMascot } }
         } else if service.dragPlaceholder {
             Group {
-                if NotchMascotSupport.isEnabled() {
+                if service.mascotOn {
                     // The companion stands by the hint and watches the file come.
                     HStack(spacing: 8) {
                         NotchMascotView(look: NotchMascotSupport.look(), size: 20, followsDrag: true)
@@ -703,7 +703,7 @@ struct NotchRestingStrip: View {
                                                                      wing: geometry.restingWingWidth,
                                                                      cameraWidth: geometry.cameraWidth, floats: false,
                                                                      bodyHeight: geometry.stripBodyHeight,
-                                                                     side: NotchMascotSupport.side()),
+                                                                     side: service.mascotSide),
                                      rests: service.mascotAtRest, visit: service.mascotVisit,
                                      mood: service.mascotRestingMood, reaction: service.mascotReaction)
                     .frame(width: geometry.collapsed.width, height: geometry.stripHeight)

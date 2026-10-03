@@ -39,8 +39,10 @@ struct NotchMascotColor: Equatable {
     static let shine = NotchMascotColor(red: 1, green: 1, blue: 1, alpha: 0.55)
 }
 
+/// The colors it comes in, in the order of the rainbow after white, so the
+/// swatches in Settings read as one row.
 enum NotchMascotPalette: String, CaseIterable, Identifiable {
-    case pearl, mint, peach, lilac, lemon, rose
+    case pearl, lemon, peach, rose, lilac, sky, mint
 
     var id: String { rawValue }
 
@@ -48,11 +50,12 @@ enum NotchMascotPalette: String, CaseIterable, Identifiable {
     var light: NotchMascotColor {
         switch self {
         case .pearl: return NotchMascotColor(red: 0.99, green: 0.98, blue: 0.96)
-        case .mint: return NotchMascotColor(red: 0.72, green: 0.97, blue: 0.86)
-        case .peach: return NotchMascotColor(red: 1.00, green: 0.86, blue: 0.74)
-        case .lilac: return NotchMascotColor(red: 0.88, green: 0.83, blue: 1.00)
         case .lemon: return NotchMascotColor(red: 1.00, green: 0.96, blue: 0.64)
+        case .peach: return NotchMascotColor(red: 1.00, green: 0.86, blue: 0.74)
         case .rose: return NotchMascotColor(red: 1.00, green: 0.80, blue: 0.87)
+        case .lilac: return NotchMascotColor(red: 0.88, green: 0.83, blue: 1.00)
+        case .sky: return NotchMascotColor(red: 0.77, green: 0.90, blue: 1.00)
+        case .mint: return NotchMascotColor(red: 0.72, green: 0.97, blue: 0.86)
         }
     }
 
@@ -60,11 +63,12 @@ enum NotchMascotPalette: String, CaseIterable, Identifiable {
     var shade: NotchMascotColor {
         switch self {
         case .pearl: return NotchMascotColor(red: 0.84, green: 0.85, blue: 0.90)
-        case .mint: return NotchMascotColor(red: 0.40, green: 0.83, blue: 0.66)
-        case .peach: return NotchMascotColor(red: 0.98, green: 0.64, blue: 0.50)
-        case .lilac: return NotchMascotColor(red: 0.69, green: 0.59, blue: 0.96)
         case .lemon: return NotchMascotColor(red: 0.97, green: 0.83, blue: 0.30)
+        case .peach: return NotchMascotColor(red: 0.98, green: 0.64, blue: 0.50)
         case .rose: return NotchMascotColor(red: 0.95, green: 0.54, blue: 0.68)
+        case .lilac: return NotchMascotColor(red: 0.69, green: 0.59, blue: 0.96)
+        case .sky: return NotchMascotColor(red: 0.43, green: 0.67, blue: 0.97)
+        case .mint: return NotchMascotColor(red: 0.40, green: 0.83, blue: 0.66)
         }
     }
 }
@@ -83,10 +87,6 @@ enum NotchMascotMood: String, CaseIterable, Identifiable {
     case alert
 
     var id: String { rawValue }
-
-    /// The faces the Settings preview shows, one per click.
-    static let showcase: [NotchMascotMood] = [.happy, .wink, .love, .sleepy, .alert, .determined,
-                                              .surprised, .searching, .thinking, .confused]
 }
 
 /// Which side of the camera the companion rests on.
@@ -134,6 +134,8 @@ enum NotchMascotReaction: String, CaseIterable {
     case hush
     /// A timer started: a determined look and a little nod.
     case ready
+    /// Music started: smiling eyes and a bob to the beat.
+    case groove
 
     /// About how long it plays, so the companion stays out for all of it
     /// when it comes out over an activity to play it.
@@ -149,6 +151,49 @@ enum NotchMascotReaction: String, CaseIterable {
         case .perk: return 1.0
         case .hush: return 1.0
         case .ready: return 1.0
+        case .groove: return 1.6
+        }
+    }
+}
+
+/// What the Settings preview can act out: a visit, and the moments the
+/// island reacts to, each with the reaction it brings.
+enum NotchMascotMoment: String, CaseIterable, Identifiable {
+    case visit, timerStarted, timeIsUp, music, downloadFinished, downloadFailed, screenshot, micMuted, keepAwake,
+         charging, unlocked
+
+    var id: String { rawValue }
+
+    /// Nil for a visit, which is a stroll rather than a reaction.
+    var reaction: NotchMascotReaction? {
+        switch self {
+        case .visit: return nil
+        case .timerStarted: return .ready
+        case .timeIsUp: return .surprised
+        case .music: return .groove
+        case .downloadFinished: return .celebrate
+        case .downloadFailed: return .confused
+        case .screenshot: return .flash
+        case .micMuted: return .hush
+        case .keepAwake: return .perk
+        case .charging: return .love
+        case .unlocked: return .wakeUp
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .visit: return "figure.walk"
+        case .timerStarted: return "timer"
+        case .timeIsUp: return "alarm"
+        case .music: return "music.note"
+        case .downloadFinished: return "arrow.down.circle"
+        case .downloadFailed: return "exclamationmark.triangle"
+        case .screenshot: return "camera.viewfinder"
+        case .micMuted: return "mic.slash"
+        case .keepAwake: return "cup.and.saucer"
+        case .charging: return "bolt"
+        case .unlocked: return "lock.open"
         }
     }
 }
@@ -605,13 +650,19 @@ struct NotchMascotVisit: Equatable {
         case countdown(TimeInterval)
         /// A countdown it watched was paused: back behind the camera.
         case retreat
+        /// Switched off: a glad hop where it rests and away behind the
+        /// camera, before the wings it rested in fold.
+        case farewell
+        /// Moved to the camera's other side: from where it rested, behind
+        /// the camera, across, and out to its new place.
+        case cross
 
         /// It ends out of sight, past the strip's end or behind the camera,
         /// so it can cross an activity's strip and leave nothing behind.
         var endsOutOfSight: Bool {
             switch self {
-            case .pass, .cameo, .countdown, .retreat: return true
-            case .lap, .home: return false
+            case .pass, .cameo, .countdown, .retreat, .farewell: return true
+            case .lap, .home, .cross: return false
             }
         }
 
@@ -651,11 +702,30 @@ struct NotchMascotTrack: Equatable {
     var ceiling: CGFloat = 0
     /// It rests right of the camera, and every stroll runs the other way.
     var mirrored = false
+    /// How many times larger than the island it is drawn, so the few points
+    /// it keeps from edges grow with it in the Settings preview.
+    var scale: CGFloat = 1
 
     /// How high a hop of `share` of its size lifts it, kept clear of the
     /// island's top so it never brushes the screen's edge or a capsule's.
     func hop(_ share: CGFloat) -> CGFloat {
-        min(size * share, max(1, baseline - size / 2 - ceiling - (hidden == nil ? 1 : 2)))
+        min(size * share, max(scale, baseline - size / 2 - ceiling - (hidden == nil ? 1 : 2) * scale))
+    }
+
+    /// Where it stands just out of sight behind the camera, `margin` points
+    /// past the camera's edge on its side.
+    func behindCamera(_ hidden: ClosedRange<CGFloat>, margin: CGFloat) -> CGFloat {
+        hidden.lowerBound + size / 2 + margin * scale
+    }
+
+    /// The same track `scale` times larger, for the Settings preview, which
+    /// shows the island bigger than it is. The companion is drawn with shapes,
+    /// so it stays sharp at any size.
+    func scaled(by scale: CGFloat) -> NotchMascotTrack {
+        NotchMascotTrack(width: width * scale, height: height * scale, size: size * scale, rest: rest * scale,
+                         hidden: hidden.map { ($0.lowerBound * scale)...($0.upperBound * scale) },
+                         baseline: baseline * scale, ceiling: ceiling * scale, mirrored: mirrored,
+                         scale: self.scale * scale)
     }
 
     /// The same track with its resting place on the camera's left.
@@ -700,6 +770,8 @@ enum NotchMascotMotion {
     static let cameoArrival: TimeInterval = 0.5
     /// It is back behind the camera as its exit ends, so the visit ends there.
     static let cameoExit: TimeInterval = 0.32
+    static let farewellDuration: TimeInterval = 0.78
+    static let crossDuration: TimeInterval = 1.24
 
     static func duration(of kind: NotchMascotVisit.Kind) -> TimeInterval {
         switch kind {
@@ -709,6 +781,8 @@ enum NotchMascotMotion {
         case .cameo(let reaction): return cameoArrival + cameoHold(reaction) + cameoExit
         case .countdown(let total): return total + countdownLinger + cameoExit
         case .retreat: return cameoExit
+        case .farewell: return farewellDuration
+        case .cross: return crossDuration
         }
     }
 
@@ -736,6 +810,8 @@ enum NotchMascotMotion {
             case .pass: return pass(on: track)
             case .home: return home(on: track)
             case .cameo(let reaction): return cameo(on: track, hold: cameoHold(reaction))
+            case .farewell: return farewell(on: track)
+            case .cross: return cross(on: track)
             case .countdown, .retreat: return NotchMascotPath()
             }
         }
@@ -763,8 +839,8 @@ enum NotchMascotMotion {
         let offstageLeft = -size
         var steps: [Step] = [.stay(0.18)]
         if let hidden = track.hidden {
-            steps += [.hop(to: hidden.lowerBound + size / 2 + 2, 0.34, height: track.hop(0.24)),
-                      .walk(to: hidden.upperBound - size / 2 - 2, 0.50),
+            steps += [.hop(to: track.behindCamera(hidden, margin: 2), 0.34, height: track.hop(0.24)),
+                      .walk(to: hidden.upperBound - size / 2 - 2 * track.scale, 0.50),
                       .hop(to: track.farSpot, 0.34, height: track.hop(0.24))]
         } else {
             steps += [.hop(to: track.farSpot, 0.60, height: track.hop(0.3)), .stay(0.58)]
@@ -784,8 +860,8 @@ enum NotchMascotMotion {
         let size = track.size
         var steps: [Step] = [.stay(0.20), .hop(to: track.rest, 0.42, height: track.hop(0.26)), .stay(0.88, bounces: 2)]
         if let hidden = track.hidden {
-            steps += [.hop(to: hidden.lowerBound + size / 2 + 2, 0.34, height: track.hop(0.24)),
-                      .walk(to: hidden.upperBound - size / 2 - 2, 0.50),
+            steps += [.hop(to: track.behindCamera(hidden, margin: 2), 0.34, height: track.hop(0.24)),
+                      .walk(to: hidden.upperBound - size / 2 - 2 * track.scale, 0.50),
                       .hop(to: track.farSpot, 0.34, height: track.hop(0.24)),
                       .stay(0.22)]
         } else {
@@ -802,7 +878,6 @@ enum NotchMascotMotion {
     /// it left the bar with until it lands. A capsule has no camera, so it
     /// lands where it rests.
     static func home(on track: NotchMascotTrack) -> NotchMascotPath {
-        let size = track.size
         guard let hidden = track.hidden else {
             var path = sample([.stay(0.08), .hop(to: track.rest, 0.36, height: track.hop(0.2))],
                               start: track.rest, track: track, duration: homeDuration)
@@ -810,7 +885,7 @@ enum NotchMascotMotion {
             return path
         }
         var path = sample([.stay(0.06), .hop(to: track.rest, 0.42, height: track.hop(0.2))],
-                          start: hidden.lowerBound + size / 2 + 2, track: track, duration: homeDuration)
+                          start: track.behindCamera(hidden, margin: 2), track: track, duration: homeDuration)
         path.greeting = 0...0.44
         return path
     }
@@ -827,7 +902,7 @@ enum NotchMascotMotion {
                           start: -size, track: track, duration: duration)
         }
         // Just out of sight, so it shows the moment it moves and is gone as it lands.
-        let behind = hidden.lowerBound + size / 2 + 1
+        let behind = track.behindCamera(hidden, margin: 1)
         return sample([.stay(0.06), .hop(to: track.rest, cameoArrival - 0.06, height: track.hop(0.2)), .stay(hold),
                        .hop(to: behind, cameoExit, height: track.hop(0.16))],
                       start: behind, track: track, duration: duration)
@@ -842,7 +917,7 @@ enum NotchMascotMotion {
         guard let hidden = track.hidden else {
             return sample([.stay(duration)], start: -size, track: track, duration: duration)
         }
-        let behind = hidden.lowerBound + size / 2 + 1
+        let behind = track.behindCamera(hidden, margin: 1)
         var steps: [Step] = [.stay(0.06), .hop(to: track.rest, cameoArrival - 0.06, height: track.hop(0.2))]
         var time = cameoArrival
         // The reading changes on every whole second left; it hops just as it does.
@@ -865,12 +940,47 @@ enum NotchMascotMotion {
         return path
     }
 
+    /// To this side of the camera from the other: from where it rested
+    /// there, into the camera's far edge, across behind it, and out with a
+    /// wink to its place on this side. A capsule has no sides, so it only
+    /// hops where it rests.
+    static func cross(on track: NotchMascotTrack) -> NotchMascotPath {
+        guard let hidden = track.hidden else { return home(on: track) }
+        let size = track.size
+        var path = sample([.stay(0.06),
+                           .hop(to: hidden.upperBound - size / 2 - 2 * track.scale, 0.34, height: track.hop(0.24)),
+                           .walk(to: track.behindCamera(hidden, margin: 2), 0.38),
+                           .hop(to: track.rest, 0.36, height: track.hop(0.24)), .stay(0.1)],
+                          start: track.farSpot, track: track, duration: crossDuration)
+        path.greeting = 0.72...crossDuration
+        return path
+    }
+
+    /// Switched off: a glad little hop where it rests, then away behind the
+    /// camera, out of sight before the wings fold. A capsule has no camera,
+    /// so it walks out past the far end.
+    static func farewell(on track: NotchMascotTrack) -> NotchMascotPath {
+        let size = track.size
+        guard let hidden = track.hidden else {
+            var path = sample([.stay(0.06), .hop(to: track.rest, 0.3, height: track.hop(0.22)), .stay(0.02),
+                               .walk(to: track.width + size, 0.4)],
+                              start: track.rest, track: track, duration: farewellDuration)
+            path.greeting = 0...0.44
+            return path
+        }
+        var path = sample([.stay(0.06), .hop(to: track.rest, 0.3, height: track.hop(0.22)), .stay(0.08),
+                           .hop(to: track.behindCamera(hidden, margin: 1), cameoExit, height: track.hop(0.16))],
+                          start: track.rest, track: track, duration: farewellDuration)
+        path.greeting = 0...0.48
+        return path
+    }
+
     /// Back behind the camera from where it watched a countdown.
     static func retreat(on track: NotchMascotTrack) -> NotchMascotPath {
         guard let hidden = track.hidden else {
             return sample([.stay(cameoExit)], start: -track.size, track: track, duration: cameoExit)
         }
-        return sample([.hop(to: hidden.lowerBound + track.size / 2 + 1, cameoExit, height: track.hop(0.16))],
+        return sample([.hop(to: track.behindCamera(hidden, margin: 1), cameoExit, height: track.hop(0.16))],
                       start: track.rest, track: track, duration: cameoExit)
     }
 
@@ -950,6 +1060,12 @@ enum NotchMascotMotion {
 enum NotchMascotSupport {
     /// Turned on in Settings, the companion says hello almost at once.
     static let welcomeDelay: TimeInterval = 1.5
+    /// Music starting brings it out to bob along at most this often, so
+    /// pressing play again and again does not keep calling it out.
+    static let grooveInterval: TimeInterval = 600
+    /// It waits this long after the music starts, until the song's strip has
+    /// settled, before it comes out over it.
+    static let grooveDelay: TimeInterval = 1.2
     static let greetings: [NotchMascotMood] = [.happy, .wink, .love]
 
     /// A blink comes this long after the previous one, twice as long in Low
@@ -964,12 +1080,20 @@ enum NotchMascotSupport {
         hour >= 22 || hour < 6 ? 12 : 36
     }
 
+    /// Installed on the Features page, switched on, and in an island that is on.
     static func isEnabled(in defaults: UserDefaults = .standard) -> Bool {
-        NotchSupport.isEnabled(in: defaults) && defaults.bool(forKey: DefaultsKey.notchMascotEnabled)
+        AppFeature.notchMascot.isAvailable(in: defaults) && NotchSupport.isEnabled(in: defaults)
+            && defaults.bool(forKey: DefaultsKey.notchMascotEnabled)
     }
 
     static func visits(in defaults: UserDefaults = .standard) -> Bool {
         isEnabled(in: defaults) && defaults.bool(forKey: DefaultsKey.notchMascotVisits)
+    }
+
+    /// Whether it comes out to react to what the island sees, and watches a
+    /// countdown run out.
+    static func reacts(in defaults: UserDefaults = .standard) -> Bool {
+        isEnabled(in: defaults) && defaults.bool(forKey: DefaultsKey.notchMascotReactions)
     }
 
     static func visitFrequency(in defaults: UserDefaults = .standard) -> NotchMascotVisitFrequency {
