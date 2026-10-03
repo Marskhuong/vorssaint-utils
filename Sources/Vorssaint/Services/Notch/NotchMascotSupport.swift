@@ -682,11 +682,13 @@ struct NotchMascotVisit: Equatable {
         }
 
         /// Over an activity beside a camera it takes only the wing it stands
-        /// in: the timer's mark while it watches a countdown, or its own wing
-        /// as it dances, with the music's bars playing on in the other.
+        /// in: the timer's mark while it watches a countdown, its own wing as
+        /// it dances, with the music's bars playing on in the other, or the
+        /// wing it rested in as an activity arrives, whose other side reads
+        /// at once instead of waiting for it to leave.
         var takesOnlyItsWing: Bool {
             switch self {
-            case .countdown, .retreat, .cameo(.groove), .linger(.groove): return true
+            case .countdown, .retreat, .cameo(.groove), .linger: return true
             default: return false
             }
         }

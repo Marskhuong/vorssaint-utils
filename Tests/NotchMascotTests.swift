@@ -311,9 +311,11 @@ enum NotchMascotTests {
         let capsule = NotchMascotSupport.track(stripWidth: 76, stripHeight: 24, wing: 0, cameraWidth: 0,
                                                floats: true, bodyHeight: 20)
         suite.expect(NotchMascotVisit.Kind.cameo(.groove).takesOnlyItsWing && NotchMascotVisit.Kind.countdown(5).takesOnlyItsWing
-                     && NotchMascotVisit.Kind.retreat.takesOnlyItsWing && !NotchMascotVisit.Kind.cameo(.celebrate).takesOnlyItsWing
+                     && NotchMascotVisit.Kind.retreat.takesOnlyItsWing && NotchMascotVisit.Kind.linger(.perk).takesOnlyItsWing
+                     && !NotchMascotVisit.Kind.cameo(.celebrate).takesOnlyItsWing
                      && !NotchMascotVisit.Kind.pass.takesOnlyItsWing,
-                     "dancing to music or watching a countdown it takes only its wing, and other moments the whole strip")
+                     "dancing to music, watching a countdown or staying as an activity arrives it takes only its wing, "
+                        + "and other moments the whole strip")
         suite.expect(NotchMascotVisit.Kind.farewell.endsOutOfSight && !NotchMascotVisit.Kind.farewell.watchesTimer
                      && NotchMascotMotion.duration(of: .farewell) < 1,
                      "a farewell is over in under a second and ends out of sight")
