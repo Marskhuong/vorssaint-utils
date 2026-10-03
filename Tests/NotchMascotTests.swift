@@ -26,6 +26,26 @@ enum NotchMascotTests {
         sideContracts(suite)
         commandBarContracts(suite)
         dropletContracts(suite)
+        calendarContracts(suite)
+    }
+
+    private static func calendarContracts(_ suite: TestSuite) {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        func event(_ id: String, _ offset: TimeInterval) -> NotchCalendarEvent {
+            NotchCalendarEvent(id: id, title: id, calendar: "Personal", start: start.addingTimeInterval(offset),
+                               end: start.addingTimeInterval(offset + 1800), allDay: false, location: "")
+        }
+        let meeting = event("meeting", 0), next = event("next", 900)
+        let counting = NotchCalendarCountdown(event: meeting, ongoing: false)
+        let began = { NotchMascotSupport.eventBegan(from: counting, to: $0, at: start.addingTimeInterval($1)) }
+        suite.expect(began(NotchCalendarCountdown(event: meeting, ongoing: true), 0.5) && began(nil, 1)
+                     && began(NotchCalendarCountdown(event: next, ongoing: false), -0.8),
+                     "the companion perks up as the event it counted down to begins, whatever the island shows next")
+        suite.expect(!began(nil, -120) && !began(NotchCalendarCountdown(event: next, ongoing: false), -300)
+                     && !began(nil, 600) && !began(NotchCalendarCountdown(event: meeting, ongoing: false), 1)
+                     && !NotchMascotSupport.eventBegan(from: NotchCalendarCountdown(event: meeting, ongoing: true), to: nil,
+                                                       at: start.addingTimeInterval(1800)),
+                     "an event moved or removed before it starts, a start slept through or an event ending is no news")
     }
 
     private static func preferenceContracts(_ suite: TestSuite) {

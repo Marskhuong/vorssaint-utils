@@ -245,6 +245,8 @@ final class NotchService: ObservableObject {
     /// Whether an AI agent was at work when the companion last looked, nil
     /// before it first did, and when it last handed the island to one.
     private var mascotSawAgents: Bool?
+    /// The calendar countdown the island showed when the companion last looked.
+    private var mascotSawCountdown: NotchCalendarCountdown?
     private var lastMascotAgentStart: CFTimeInterval = -.infinity
     /// The companion is out in the Command Bar's drop, and the island rests without it.
     @Published private(set) var mascotInBar = false
@@ -3370,6 +3372,7 @@ final class NotchService: ObservableObject {
             NotchCalendarService.shared.$countdown.removeDuplicates()
                 .receive(on: DispatchQueue.main)
                 .sink { [weak self] _ in
+                    self?.syncMascotCalendar()
                     self?.syncMenuSpaceMonitoring()
                     self?.objectWillChange.send()
                     self?.refreshPresentation()
@@ -3888,6 +3891,15 @@ extension NotchService {
         guard now - lastMascotAgentStart > NotchMascotSupport.agentStartInterval else { return }
         lastMascotAgentStart = now
         reactMascot(.ready, patience: 1)
+    }
+
+    /// The event the island counted down to begins: the companion perks up,
+    /// beside its time left or where it rests.
+    fileprivate func syncMascotCalendar() {
+        let countdown = NotchCalendarService.shared.countdown
+        defer { mascotSawCountdown = countdown }
+        guard NotchMascotSupport.eventBegan(from: mascotSawCountdown, to: countdown, at: Date()) else { return }
+        reactMascot(.perk)
     }
 
     /// Music started: once the song's strip has settled, the companion comes

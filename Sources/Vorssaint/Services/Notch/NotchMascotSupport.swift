@@ -1144,6 +1144,20 @@ enum NotchMascotSupport {
     /// An AI agent getting to work where it rests has it hand the island over
     /// with a ready face at most this often, since agents start many turns.
     static let agentStartInterval: TimeInterval = 600
+
+    /// Whether the event the island counted down to, as `before`, began as
+    /// the countdown became `after` at `now`: it perks up then. Only just
+    /// begun, so a Mac that slept through the start, or an event moved or
+    /// removed before it, is no news.
+    static func eventBegan(from before: NotchCalendarCountdown?, to after: NotchCalendarCountdown?,
+                           at now: Date) -> Bool {
+        guard let before, !before.ongoing else { return false }
+        let since = now.timeIntervalSince(before.event.start)
+        // Its refresh may come a second early.
+        guard since >= -2, since < 60 else { return false }
+        guard let after else { return true }
+        return after.event.id != before.event.id || after.ongoing
+    }
     static let greetings: [NotchMascotMood] = [.happy, .wink, .love]
 
     /// A blink comes this long after the previous one, twice as long in Low
