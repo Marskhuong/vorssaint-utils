@@ -1159,6 +1159,12 @@ enum NotchMascotSupport {
         }
     }
 
+    /// How it takes the Mac's power changing: glad when the charger goes in,
+    /// cheering once the battery is full, and tired when it runs low.
+    static func powerReaction(pluggedIn: Bool, charged: Bool, low: Bool) -> NotchMascotReaction? {
+        pluggedIn ? .love : charged ? .celebrate : low ? .yawn : nil
+    }
+
     /// Whether the event the island counted down to, as `before`, began as
     /// the countdown became `after` at `now`: it perks up then. Only just
     /// begun, so a Mac that slept through the start, or an event moved or

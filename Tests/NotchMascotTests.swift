@@ -46,6 +46,11 @@ enum NotchMascotTests {
                      && NotchMascotSupport.timerReaction(finishing: .shortBreak) == .ready
                      && NotchMascotSupport.timerReaction(finishing: .longBreak) == .ready,
                      "a timer's ring startles it, a finished focus session makes it glad and a break's end gets it ready")
+        suite.expect(NotchMascotSupport.powerReaction(pluggedIn: true, charged: false, low: false) == .love
+                     && NotchMascotSupport.powerReaction(pluggedIn: false, charged: true, low: false) == .celebrate
+                     && NotchMascotSupport.powerReaction(pluggedIn: false, charged: false, low: true) == .yawn
+                     && NotchMascotSupport.powerReaction(pluggedIn: false, charged: false, low: false) == nil,
+                     "the charger going in makes it glad, a full battery makes it cheer, a low one tires it, and unplugging is no news")
         suite.expect(!began(nil, -120) && !began(NotchCalendarCountdown(event: next, ongoing: false), -300)
                      && !began(nil, 600) && !began(NotchCalendarCountdown(event: meeting, ongoing: false), 1)
                      && !NotchMascotSupport.eventBegan(from: NotchCalendarCountdown(event: meeting, ongoing: true), to: nil,

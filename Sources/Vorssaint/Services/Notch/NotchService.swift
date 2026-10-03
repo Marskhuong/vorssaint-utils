@@ -3597,8 +3597,8 @@ final class NotchService: ObservableObject {
         let title = low ? text.lowBattery : next.externalConnected
             ? (next.isCharging ? text.charging : next.chargePercent == 100
                 ? text.charged : L10n.shared.s.powerPluggedIn) : text.onBattery
-        // Plugged in it is glad, and running low it grows tired.
-        let reaction: NotchMascotReaction? = pluggedIn ? .love : low ? .yawn : nil
+        let charged = next.externalConnected && before.isCharging && !next.isCharging && next.chargePercent == 100
+        let reaction = NotchMascotSupport.powerReaction(pluggedIn: pluggedIn, charged: charged, low: low)
         show(NotchNotice(event: .battery, title: title,
                          detail: next.chargePercent.map { "\($0)%" } ?? "",
                          symbol: next.externalConnected ? "battery.100percent.bolt" : "battery.25percent",
