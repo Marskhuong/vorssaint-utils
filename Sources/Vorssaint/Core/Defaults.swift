@@ -1878,6 +1878,7 @@ enum Defaults {
         defaults.register(defaults: registeredDefaults)
         defaults.register(defaults: AppFeature.availabilityDefaults)
         activateBetaChannelIfRunningBeta(in: defaults)
+        installCompanionForBetaCommandBar(in: defaults)
         migrateLegacyMenuBarTemperatureMetric(in: defaults)
         migrateLegacySwitcherWindowShortcut(in: defaults)
         migrateLegacyKeyboardDebounceWindow(in: defaults)
@@ -2023,6 +2024,19 @@ enum Defaults {
         guard !defaults.bool(forKey: markerKey) else { return }
         defaults.set(true, forKey: markerKey)
         defaults.set(true, forKey: DefaultsKey.includeBetaUpdates)
+    }
+
+    /// On a beta, people with the Command Bar get the island's companion,
+    /// which can be its face, installed and on. Only those who never chose
+    /// about it: one who uninstalled it keeps it out.
+    static func installCompanionForBetaCommandBar(in defaults: UserDefaults,
+                                                  domainName: String? = Bundle.main.bundleIdentifier,
+                                                  isBeta: Bool = AppInfo.isBeta) {
+        guard isBeta, let domainName, AppFeature.commandBar.isAvailable(in: defaults) else { return }
+        let saved = defaults.persistentDomain(forName: domainName) ?? [:]
+        guard saved[AppFeature.notchMascot.availabilityKey] == nil else { return }
+        defaults.set(true, forKey: AppFeature.notchMascot.availabilityKey)
+        defaults.set(true, forKey: DefaultsKey.notchMascotEnabled)
     }
 
     /// The downloads cleanup for a messaging app used to sit in Cleaner for

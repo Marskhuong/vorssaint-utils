@@ -64,6 +64,24 @@ enum PreferencesFeatureTests {
         Defaults.migrateLiquidGlassIsland(in: glassDefaults, domainName: glassDomain)
         suite.expect(!glassDefaults.bool(forKey: DefaultsKey.notchLiquidGlassEnabled),
                "an explicit island choice survives later launches")
+        let companionDomain = "vorss.tests.companion-beta.\(UUID().uuidString)"
+        let companionDefaults = UserDefaults(suiteName: companionDomain)!
+        defer { companionDefaults.removePersistentDomain(forName: companionDomain) }
+        companionDefaults.set(true, forKey: AppFeature.commandBar.availabilityKey)
+        Defaults.installCompanionForBetaCommandBar(in: companionDefaults, domainName: companionDomain, isBeta: false)
+        let stableUntouched = companionDefaults.object(forKey: AppFeature.notchMascot.availabilityKey) == nil
+        Defaults.installCompanionForBetaCommandBar(in: companionDefaults, domainName: companionDomain, isBeta: true)
+        let installed = companionDefaults.bool(forKey: AppFeature.notchMascot.availabilityKey)
+            && companionDefaults.bool(forKey: DefaultsKey.notchMascotEnabled)
+        companionDefaults.set(false, forKey: AppFeature.notchMascot.availabilityKey)
+        Defaults.installCompanionForBetaCommandBar(in: companionDefaults, domainName: companionDomain, isBeta: true)
+        let keptOut = !companionDefaults.bool(forKey: AppFeature.notchMascot.availabilityKey)
+        companionDefaults.removePersistentDomain(forName: companionDomain)
+        companionDefaults.set(false, forKey: AppFeature.commandBar.availabilityKey)
+        Defaults.installCompanionForBetaCommandBar(in: companionDefaults, domainName: companionDomain, isBeta: true)
+        suite.expect(stableUntouched && installed && keptOut
+                     && companionDefaults.object(forKey: AppFeature.notchMascot.availabilityKey) == nil,
+                     "a beta installs the companion for Command Bar users who never chose, and keeps it out for one who uninstalled it")
         suite.expect(AppAppearance.sanitized(nil) == .system
                 && AppAppearance.sanitized("nonsense") == .system,
                "an unknown stored appearance falls back to the system one")
