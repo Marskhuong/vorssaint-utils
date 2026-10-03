@@ -119,6 +119,28 @@ struct NotchStripHold<Value: Equatable, Content: View>: View {
     }
 }
 
+/// Swaps a strip and the companion at rest through black: the one leaving is
+/// gone halfway through the island's crossfade and the one arriving comes in
+/// over the rest of it, so the companion never shows half faded over the
+/// strip's text in the same place.
+struct NotchFadeThrough: ViewModifier, Animatable {
+    var progress: Double
+    var animatableData: Double {
+        get { progress }
+        set { progress = newValue }
+    }
+
+    func body(content: Content) -> some View {
+        content.opacity(max(0, progress * 2 - 1))
+    }
+}
+
+extension AnyTransition {
+    static var notchFadeThrough: AnyTransition {
+        .modifier(active: NotchFadeThrough(progress: 0), identity: NotchFadeThrough(progress: 1))
+    }
+}
+
 struct NotchIconButton: View {
     let symbol: String
     let title: String

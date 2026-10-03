@@ -20,6 +20,14 @@ enum NotchPresentationRefreshContract {
         struct Accessibility { var accessibilityDisplayShouldReduceMotion = false }
     }
     enum NotchPanel { static let normalLevel = 1, fullscreenLevel = 0 }
+    enum NotificationCenter {
+        enum Name { case notchMascotRestYields }
+        static var `default` = Center()
+        struct Center {
+            var restYields = 0
+            mutating func post(name: Name, object: Any?) { restYields += 1 }
+        }
+    }
     final class CaptureOptions: ObservableObject {
         enum Tool { case screenshot, text }
         @Published var selectedTool: Tool = .screenshot
@@ -176,6 +184,7 @@ enum NotchPresentationRefreshContract {
         func syncMascotAgents() {}
         var mascotRestsInView = false
         var mascotRestedInView = false
+        var mascotLingers = false
         var selectedMetric: Bool?
         var expanded = true
         var peeking = false, dragPlaceholder = false, compactActivityIsVisible = false
@@ -239,6 +248,7 @@ enum NotchPresentationRefreshContract {
 
     static func run(_ suite: TestSuite) {
         compactMusicDepartureChecks(suite)
+        mascotYieldChecks(suite)
         UserDefaults.standard.hides = false
         UserDefaults.standard.outline = false
         defer {
@@ -571,6 +581,29 @@ enum NotchPresentationRefreshContract {
                && physical.compactActivityGeometry.compactActivityWingWidth == 0
                && physical.windowHost?.targetSize.height == physical.geometry.menuBarHeight,
                "an active timer on a physical camera retracts its wings and stays at menu-bar height without a menu measurement")
+    }
+
+    private static func mascotYieldChecks(_ suite: TestSuite) {
+        func arrival(lingers: Bool = false, reduceMotion: Bool = false, activity: Bool = true) -> (first: Int, again: Int) {
+            NSWorkspace.shared.accessibilityDisplayShouldReduceMotion = reduceMotion
+            defer { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion = false }
+            let service = Service()
+            service.expanded = false
+            service.mascotRestedInView = true
+            service.mascotLingers = lingers
+            service.compactActivityIsVisible = activity
+            NotificationCenter.default.restYields = 0
+            service.refreshPresentation()
+            let first = NotificationCenter.default.restYields
+            service.refreshPresentation()
+            return (first, NotificationCenter.default.restYields - first)
+        }
+        let arrived = arrival()
+        suite.expect(arrived.first == 1 && arrived.again == 0,
+                     "an activity taking the resting companion's place tells it once to fade out ahead of the strip")
+        suite.expect(arrival(lingers: true).first == 0 && arrival(reduceMotion: true).first == 0
+                     && arrival(activity: false).first == 0,
+                     "a companion staying to react, Reduce Motion or nothing arriving leaves it where it rests")
     }
 
     private static func compactMusicDepartureChecks(_ suite: TestSuite) {

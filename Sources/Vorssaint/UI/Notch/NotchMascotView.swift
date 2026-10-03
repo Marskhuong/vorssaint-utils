@@ -11,6 +11,8 @@ extension Notification.Name {
     /// The pointer moved over the open island, or left it.
     static let notchMascotPointerMoved = Notification.Name("NotchMascotPointerMoved")
     static let notchMascotPointerLeft = Notification.Name("NotchMascotPointerLeft")
+    /// An activity takes the place of the companion resting in the closed island.
+    static let notchMascotRestYields = Notification.Name("NotchMascotRestYields")
 }
 
 /// A one-off motion the companion plays over its face.
@@ -821,6 +823,7 @@ final class NotchMascotHostView: NSView {
         if let visibilityObserver { NotificationCenter.default.removeObserver(visibilityObserver) }
         if let dragObserver { NotificationCenter.default.removeObserver(dragObserver) }
         islandObservers.forEach(NotificationCenter.default.removeObserver)
+        if let yieldObserver { NotificationCenter.default.removeObserver(yieldObserver) }
         cameoWork?.cancel()
     }
 
@@ -862,6 +865,40 @@ final class NotchMascotHostView: NSView {
         }
     }
     private var islandObservers: [NSObjectProtocol] = []
+
+    /// Resting in the closed island, it fades out in the first half of the
+    /// crossfade an arriving activity brings, and the strip comes in over the
+    /// second. SwiftUI fades a hosted view out over the whole crossfade
+    /// whatever its transition says, which left it half seen over the text.
+    var yieldsToActivities = false {
+        didSet {
+            guard yieldsToActivities != oldValue else { return }
+            if let yieldObserver { NotificationCenter.default.removeObserver(yieldObserver) }
+            yieldObserver = yieldsToActivities
+                ? NotificationCenter.default.addObserver(forName: .notchMascotRestYields, object: nil, queue: .main) {
+                    [weak self] _ in self?.yieldToActivity()
+                }
+                : nil
+        }
+    }
+    private var yieldObserver: NSObjectProtocol?
+
+    private func yieldToActivity() {
+        guard window != nil, let root = layer else { return }
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 1
+        fade.toValue = 0
+        fade.duration = NotchMascotMotion.restCrossfade / 2
+        fade.timingFunction = CAMediaTimingFunction(name: .easeIn)
+        fade.fillMode = .forwards
+        fade.isRemovedOnCompletion = false
+        root.add(fade, forKey: "yield")
+        // The view is gone once the crossfade is over. One still on screen
+        // after it comes back.
+        DispatchQueue.main.asyncAfter(deadline: .now() + NotchMascotMotion.restCrossfade * 2) { [weak self] in
+            self?.layer?.removeAnimation(forKey: "yield")
+        }
+    }
 
     private func followIslandPointer() {
         guard followsPointer, !mascot.isVisiting, let window else { return }
@@ -1147,6 +1184,8 @@ struct NotchMascotTrackView: NSViewRepresentable {
     var awake = true
     /// Its eyes follow the pointer over the whole open island.
     var followsIsland = false
+    /// It rests in the closed island and fades out early as an activity takes its place.
+    var yieldsToActivities = false
 
     func makeNSView(context: Context) -> NotchMascotHostView {
         NotchMascotHostView(frame: CGRect(x: 0, y: 0, width: track.width, height: track.height))
@@ -1168,6 +1207,7 @@ struct NotchMascotTrackView: NSViewRepresentable {
         view.place(at: CGPoint(x: x, y: track.baseline), visible: visible)
         view.followsPointer = rests && awake
         view.followsIsland = followsIsland && rests && awake
+        view.yieldsToActivities = yieldsToActivities
         view.playVisit(visit, path: NotchMascotMotion.path(for: visit?.kind ?? .pass, on: track),
                        baseline: track.baseline, stand: CGPoint(x: track.rest, y: track.baseline),
                        lift: track.hop(0.22))

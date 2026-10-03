@@ -273,10 +273,17 @@ final class NotchService: ObservableObject {
     private(set) var mascotRestedInView = false {
         didSet {
             if oldValue, !mascotRestedInView { mascotLeftRest = CACurrentMediaTime() }
-            if !oldValue, mascotRestedInView { mascotReturnedToRest() }
+            if !oldValue, mascotRestedInView {
+                mascotBackAtRest = CACurrentMediaTime()
+                mascotReturnedToRest()
+                // A reaction asked for as it came back waits for it to show.
+                if pendingMascotReaction != nil { flushMascotReaction() }
+            }
         }
     }
     private var mascotLeftRest: CFTimeInterval = -.infinity
+    /// When the island last drew it back at rest, crossfading in.
+    private var mascotBackAtRest: CFTimeInterval = -.infinity
     /// At rest in view as of the last refresh, or until a moment ago, since
     /// another refresh can run between an activity arriving and the island
     /// drawing it: what arrives crossfades from the companion, and a reaction
@@ -2333,6 +2340,12 @@ final class NotchService: ObservableObject {
         if let windowHost, windowHost.targetSize != size { objectWillChange.send() }
         windowHost?.setOutline(enabled: !fullscreenCompact && UserDefaults.standard.bool(forKey: DefaultsKey.notchOutlineEnabled),
                                color: compactActivityIsVisible && compactActivity == .timer ? .systemOrange : .white)
+        // An activity takes the companion's place at rest: it fades out ahead
+        // of the strip coming in, unless it stays to react over the strip.
+        if mascotRestedInView, compactActivity != nil, !mascotLingers,
+           !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            NotificationCenter.default.post(name: .notchMascotRestYields, object: nil)
+        }
         windowHost?.present(size: size, geometry: expanded ? expandedGeometry : geometry, animated: animated,
                             transitionContent: contentTransition,
                             quickAccess: expanded && captureControls == nil && !showingCommandBar && !access.buttons.isEmpty
@@ -4186,6 +4199,19 @@ extension NotchService {
             return
         }
         guard mascotVisit == nil, mascotResidentShows || canHostMascotVisit() else { return }
+        // Back at rest as the activity that held its place leaves, it
+        // crossfades in there first, and a hop played at once would be half
+        // seen over the strip going away: the reaction waits until the island
+        // draws it at rest and the crossfade is over.
+        if mascotRestsInView, !mascotResidentShows, !mascotBridging {
+            guard mascotRestedInView else { return }
+            let shows = mascotBackAtRest + NotchMascotMotion.restCrossfade
+            if now < shows {
+                pendingMascotReaction = (pending.reaction, max(pending.deadline, shows + 0.5), shows)
+                flushMascotReaction()
+                return
+            }
+        }
         pendingMascotReaction = nil
         guard mascotReactionGate.admits(pending.reaction, at: now) else { return }
         // Open, it plays where the island keeps it beside the camera. An

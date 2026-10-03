@@ -808,6 +808,9 @@ enum NotchMascotMotion {
     static let cameoExit: TimeInterval = 0.32
     static let farewellDuration: TimeInterval = 0.78
     static let crossDuration: TimeInterval = 1.24
+    /// The closed island crossfades an activity arriving out of the companion
+    /// at rest, and one leaving back into it, over this long.
+    static let restCrossfade: TimeInterval = 0.2
 
     static func duration(of kind: NotchMascotVisit.Kind) -> TimeInterval {
         switch kind {

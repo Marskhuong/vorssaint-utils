@@ -19,9 +19,9 @@ struct NotchView: View {
 
     var body: some View {
         surface
-            // An activity arriving over the resting companion crossfades into
-            // it, and one ending crossfades back into the companion, instead of
-            // cutting from one to the other in a frame. A song leaving has its
+            // An activity arriving over the resting companion fades in as the
+            // companion fades out, and one ending fades back into it, instead
+            // of cutting from one to the other in a frame. A song leaving has its
             // own departure. A companion that stays to react is drawn over the
             // new strip where it stood, so the swap under it is left
             // unanimated: two of it crossfading in one place would dim it.
@@ -31,7 +31,7 @@ struct NotchView: View {
                 let leaves = service.compactActivity == nil && service.mascotAtRest
                     && service.departingMusic == nil && service.lingeringMusic == nil
                 guard arrives || leaves else { return }
-                transaction.animation = .easeInOut(duration: 0.2)
+                transaction.animation = .easeInOut(duration: NotchMascotMotion.restCrossfade)
             }
             .frame(width: service.surfaceSize.width, height: service.surfaceSize.height, alignment: .top)
             .foregroundStyle(.white)
@@ -204,6 +204,7 @@ struct NotchView: View {
                 activityStrip(activity, size: strip)
                     .modifier(NotchMascotActivityVisit(service: service,
                                                        track: service.mascotTrack(overActivityStrip: strip)))
+                    .transition(companionSwap)
             }
         } else if let departingMusic = service.departingMusic ?? service.lingeringMusic {
             Group {
@@ -214,15 +215,19 @@ struct NotchView: View {
             .accessibilityHidden(true)
         } else if floats {
             NotchCapsuleRestingView(service: service, size: service.surfaceSize)
-                .transition(.opacity)
+                .transition(companionSwap)
         } else {
             compact
-                .transition(.opacity)
+                .transition(companionSwap)
         }
     }
 
     /// The island floats as a capsule, whose strips run end to end.
     private var floats: Bool { service.geometry.floats }
+
+    /// A strip and the companion at rest swap through black, where a
+    /// crossfade would show it half faded over the strip's text.
+    private var companionSwap: AnyTransition { service.mascotAtRest ? .notchFadeThrough : .opacity }
 
     /// `size` is the capsule's; a hanging strip keeps the camera's geometry.
     @ViewBuilder private func activityStrip(_ activity: NotchCompactActivity, size: CGSize) -> some View {
@@ -742,7 +747,8 @@ struct NotchRestingStrip: View {
                                                                      bodyHeight: geometry.stripBodyHeight,
                                                                      side: service.mascotSide),
                                      rests: service.mascotAtRest, visit: service.mascotVisit,
-                                     mood: service.mascotRestingMood, reaction: service.mascotReaction)
+                                     mood: service.mascotRestingMood, reaction: service.mascotReaction,
+                                     yieldsToActivities: true)
                     .frame(width: geometry.collapsed.width, height: geometry.stripHeight)
                     // The window's own layer shows it while the island closes around it.
                     .opacity(service.mascotBridging && displayGeometry == nil ? 0 : 1)
