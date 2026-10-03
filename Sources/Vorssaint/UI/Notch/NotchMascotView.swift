@@ -137,7 +137,10 @@ final class NotchMascotRig: NSObject {
             visor.path = parts.visor
             ears.fillColor = palette.shade.cgColor
             antenna.fillColor = palette.shade.cgColor
-            bulb.fillColor = palette.light.cgColor
+            bulb.fillColor = (mood == .sleepy ? palette.shade : palette.light).cgColor
+            bulb.shadowColor = palette.light.cgColor
+            bulb.shadowRadius = max(0.8, size * 0.09)
+            bulb.shadowOffset = .zero
             for eye in [leftEye, rightEye] {
                 eye.fillColor = palette.light.cgColor
                 eye.shadowColor = palette.light.cgColor
@@ -173,6 +176,7 @@ final class NotchMascotRig: NSObject {
         dozed = false
         if mood != .sleepy { blinks = 0 }
         apply(mood.expression, animated: animated && !reduceMotion)
+        lightBulb(mood != .sleepy, animated: animated && !reduceMotion)
         guard animated, !reduceMotion, size > 0 else { syncBlinking(); return }
         switch mood {
         case .surprised: pop()
@@ -399,6 +403,45 @@ final class NotchMascotRig: NSObject {
         squasher.add(squash, forKey: "squash")
     }
 
+    /// The robot's antenna bulb goes dark while it sleeps and lights again as
+    /// it wakes.
+    private func lightBulb(_ lit: Bool, animated: Bool) {
+        guard look.style == .robot else { return }
+        let color = (lit ? look.palette.light : look.palette.shade).cgColor
+        if animated {
+            let fade = CABasicAnimation(keyPath: "fillColor")
+            fade.fromValue = bulb.presentation()?.fillColor ?? bulb.fillColor
+            fade.toValue = color
+            fade.duration = lit ? 0.25 : 0.6
+            bulb.add(fade, forKey: "light")
+        }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        bulb.fillColor = color
+        CATransaction.commit()
+    }
+
+    /// Lit already, the bulb shows dark a moment longer, then lights.
+    private func relightBulb(after delay: TimeInterval) {
+        guard look.style == .robot else { return }
+        let dark = look.palette.shade.cgColor
+        let light = CAKeyframeAnimation(keyPath: "fillColor")
+        light.values = [dark, dark, look.palette.light.cgColor]
+        light.keyTimes = [0, NSNumber(value: delay / (delay + 0.3)), 1]
+        light.duration = delay + 0.3
+        bulb.add(light, forKey: "light")
+    }
+
+    /// A reaction lights the robot's bulb up with a soft glow for as long as it plays.
+    private func glowBulb(for duration: TimeInterval) {
+        guard look.style == .robot else { return }
+        let glow = CAKeyframeAnimation(keyPath: "shadowOpacity")
+        glow.values = [0, 1, 1, 0]
+        glow.keyTimes = [0, 0.12, 0.7, 1]
+        glow.duration = duration
+        bulb.add(glow, forKey: "glow")
+    }
+
     /// Positive flattens it on the ground, negative stretches it up, and its
     /// bottom stays where it was.
     private func squashed(_ amount: CGFloat) -> CATransform3D {
@@ -460,6 +503,7 @@ final class NotchMascotRig: NSObject {
         if dozed, reaction != .wakeUp { setMood(.idle, animated: !reduceMotion) }
         blinks = 0
         let now = CACurrentMediaTime()
+        glowBulb(for: reaction.length)
         guard !reduceMotion else {
             switch reaction {
             case .celebrate, .wakeUp: flashFace(.happy, duration: 1)
@@ -496,8 +540,12 @@ final class NotchMascotRig: NSObject {
             flashFace(.confused, duration: 1.2)
             wobble()
         case .wakeUp:
-            // Heavy eyes, a stretch, and a glad face.
-            if dozed { setMood(.idle, animated: false) }
+            // Heavy eyes, a stretch, and a glad face. A robot's bulb lights
+            // up again as it stretches.
+            if dozed {
+                setMood(.idle, animated: false)
+                relightBulb(after: 0.35)
+            }
             flashFace(.sleepy, duration: 0.7)
             stretch(beginTime: now + 0.35, duration: 0.6)
             flashFace(.happy, duration: 0.9, beginTime: now + 0.7, key: "flashAfter")

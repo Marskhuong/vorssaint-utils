@@ -331,6 +331,9 @@ private struct NotchMascotStageCard: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+                // Asleep while it is switched off, it answers none of this,
+                // so the tip dims with the moments.
+                .opacity(awake ? 1 : 0.45)
         }
         .padding(16)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
