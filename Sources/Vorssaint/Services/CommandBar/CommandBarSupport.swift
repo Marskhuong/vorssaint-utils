@@ -343,11 +343,21 @@ enum CommandBarSearch {
     /// last. The rows trade places among the slots they already hold, so
     /// nothing else moves, and a row chosen on purpose, by a name or a habit,
     /// keeps its place while the rest still keep their order around it.
+    /// A feature's generated switch counts as its main command, and a page
+    /// of its own, named as the feature is, as its Settings page.
     /// `id` and `priority` read a candidate by its index.
     static func featureOrdered(_ ranked: [Int], id: (Int) -> String, priority: (Int) -> Int) -> [Int] {
         // The feature a row belongs to, and its turn among that feature's rows.
         func role(_ id: String) -> (feature: Substring, turn: Int)? {
             if id.hasPrefix("settings.feature.") { return (id.dropFirst("settings.feature.".count), 2) }
+            if id.hasPrefix("settings.") {
+                let page = id.dropFirst("settings.".count)
+                return page.contains(".") ? nil : (page, 2)
+            }
+            if id.hasPrefix("toggle.") {
+                let name = id.dropFirst("toggle.".count)
+                return (name.split(separator: ".", maxSplits: 1).first ?? name, 0)
+            }
             guard id.hasPrefix("action.") else { return nil }
             let name = id.dropFirst("action.".count)
             guard let dot = name.firstIndex(of: ".") else { return (name, 0) }

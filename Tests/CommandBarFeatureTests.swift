@@ -1190,6 +1190,14 @@ enum CommandBarFeatureTests {
         suite.expect(CommandBarSearch.featureOrdered([0, 1, 2, 3], id: { habitIDs[$0] }, priority: { $0 == 0 ? 300 : 0 })
                 == [0, 2, 3, 1],
                "a switch run often keeps its place, and its presets still come before its Settings page")
+        let switchIDs = ["settings.notchMascot", "app.companion", "toggle.notchMascot", "settings.setting.panelConfiguration"]
+        suite.expect(CommandBarSearch.featureOrdered([0, 1, 2, 3], id: { switchIDs[$0] }, priority: { _ in 0 })
+                == [2, 1, 0, 3],
+               "a feature's switch leads the page of its own named like it, and nothing else moves")
+        let pairIDs = ["toggle.scrollInverter.horizontal", "settings.mouse", "toggle.scrollInverter.vertical"]
+        suite.expect(CommandBarSearch.featureOrdered([0, 1, 2], id: { pairIDs[$0] }, priority: { _ in 0 })
+                == [0, 1, 2],
+               "two switches of one feature keep the order they ranked in, beside a page that is not theirs")
         suite.expect(CommandBarSearch.rankedIndexes(candidates: barCandidates, matching: " ").isEmpty,
                "a blank query ranks nothing; suggestions handle it")
         let typoCandidates = [
