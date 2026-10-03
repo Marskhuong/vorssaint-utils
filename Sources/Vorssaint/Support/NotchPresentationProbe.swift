@@ -59,6 +59,17 @@ enum NotchPresentationProbe {
         }
     }
 
+    /// Check the shoulder in the path's own bounds. A fixed x of 12 sits
+    /// inside the bottom curve of a 24 pt simulated notch, falsely reporting
+    /// an inversion, though it sits outside a taller physical notch's curve.
+    private static func hangingSilhouetteIsUpright(_ path: CGPath) -> Bool {
+        let box = path.boundingBoxOfPath
+        guard !box.isNull, box.width > 0, box.height > 2 else { return false }
+        let x = box.minX + NotchLayout.shoulder(height: box.height)
+        return path.contains(CGPoint(x: x, y: box.minY + 1))
+            && !path.contains(CGPoint(x: x, y: box.maxY - 1))
+    }
+
     private static func checkHiddenReveal(screen: NSScreen) -> [String] {
         var failures: [String] = []
         let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -422,6 +433,17 @@ enum NotchPresentationProbe {
         host.panel.ignoresMouseEvents = true
         host.panel.orderFrontRegardless()
         var failures = checkHiddenReveal(screen: screen)
+        for height: CGFloat in [16, 24, 32, 64] {
+            let path = NotchShape(attached: true, radius: NotchLayout.surfaceRadius(height: height))
+                .path(in: CGRect(x: 0, y: 0, width: 180, height: height)).cgPath
+            var flip = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: height)
+            var placement = CGAffineTransform(translationX: 40, y: 3)
+            let upright = path.copy(using: &placement)!
+            let inverted = path.copy(using: &flip)!.copy(using: &placement)!
+            if !hangingSilhouetteIsUpright(upright) || hangingSilhouetteIsUpright(inverted) {
+                failures.append("the silhouette check does not distinguish an upright and inverted \(height) pt notch")
+            }
+        }
         host.setOutline(enabled: true, color: .systemOrange)
         if host.outlineProbeOpacity != 1 || host.outlineProbeWidth != 2 {
             failures.append("the optional outline is not visible around the compact island")
@@ -454,9 +476,8 @@ enum NotchPresentationProbe {
                                                                                                   y: host.panel.frame.height - 0.5))) {
                     failures.append("the capsule is not drawn inside the menu bar, or its top margin lost the island's clicks")
                 }
-            } else if !path.contains(CGPoint(x: 12, y: 1))
-                || path.contains(CGPoint(x: 12, y: geometry.collapsed.height - 1)) {
-                failures.append("physical silhouette is inverted")
+            } else if !hangingSilhouetteIsUpright(path) {
+                failures.append("hanging silhouette is inverted")
             }
         }
         var nativeResizes = 0
@@ -718,6 +739,29 @@ enum NotchPresentationProbe {
             advance(0.6)
             if !matchesNativeFrame(host.panel.frame, shifted.frame(for: size)) || abs(drawnShift() - shifted.surfaceShift) > 0.5 {
                 failures.append("a lopsided notice did not settle toward its wider side")
+            }
+            // Swapping equally wide notices still moves their centre. The
+            // shift cannot be inferred from width when that width stays put.
+            var equalWidth = geometry
+            equalWidth.surfaceShift = geometry.noticeShift(NotchNoticeWings(leading: 40, trailing: 160))
+            for destination in [equalWidth, shifted] {
+                let before = drawnShift()
+                host.present(size: size, geometry: destination, animated: true, steady: true)
+                if !reduceMotion, abs(drawnShift() - before) > 1 {
+                    failures.append("an equal-width notice replacement jumped sideways as it began")
+                }
+                advance(0.09)
+                let moving = drawnShift()
+                if !reduceMotion, !(moving > min(before, destination.surfaceShift) + 0.5
+                                    && moving < max(before, destination.surfaceShift) - 0.5) {
+                    failures.append("an equal-width notice replacement has no intermediate centre")
+                }
+                checkBackdrop(host, failures: &failures)
+                advance(0.6)
+                if !matchesNativeFrame(host.panel.frame, destination.frame(for: size))
+                    || abs(drawnShift() - destination.surfaceShift) > 0.5 {
+                    failures.append("an equal-width notice replacement did not settle at its new centre")
+                }
             }
             let mirrored = NotchNoticeWings(leading: 40, trailing: 120)
             var other = geometry

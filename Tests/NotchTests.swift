@@ -1889,6 +1889,32 @@ enum NotchTests {
                          && steady.duration > NotchMotion.frames(from: from, to: to).duration,
                          "a notice fitting a new reading moves more gently than the island's springs")
         }
+        // Equal total widths still move when the longer notice wing changes sides.
+        let sameSize = CGSize(width: 380, height: 32)
+        for start: CGFloat in [-120, 120] {
+            let motion = NotchMotion.frames(from: sameSize, to: sameSize, offset: start)
+            let offsets = motion.keyTimes.map {
+                NotchMotion.offset(at: $0 * motion.duration, from: sameSize, to: sameSize, start: start)
+            }
+            suite.expect(motion.sizes.allSatisfy { $0 == sameSize }
+                         && offsets.first == start && abs(offsets.last ?? .infinity) <= NotchMotion.settledDistance
+                         && zip(offsets, offsets.dropFirst()).allSatisfy { abs($1) <= abs($0) }
+                         && abs(NotchMotion.offset(at: 0.09, from: sameSize, to: sameSize, start: start)) < abs(start)
+                         && motion.duration > 0.3,
+                         "an equal-width notice moves its centre smoothly in either direction while its size stays put")
+        }
+        suite.expect(NotchMotion.offset(at: 0, from: sameSize, to: sameSize, start: 0) == 0,
+                     "an unchanged notice with no shift stays in place")
+        for (from, to) in [(CGSize(width: 315, height: 32), CGSize(width: 329, height: 32)),
+                           (CGSize(width: 329, height: 32), CGSize(width: 315, height: 32))] {
+            for steady in [false, true] {
+                let time: TimeInterval = 0.09
+                let size = NotchMotion.size(at: time, from: from, to: to, steady: steady)
+                let expected = 60 * (1 - (size.width - from.width) / (to.width - from.width))
+                suite.expect(abs(NotchMotion.offset(at: time, from: from, to: to, start: 60, steady: steady) - expected) < 0.001,
+                             "a notice changing width still moves its centre with that same width spring")
+            }
+        }
         for (from, to) in [(roomy.collapsed, roomy.expanded), (idle, roomy.notice), (roomy.expanded, roomy.collapsed),
                            (roomy.notice, idle), (CGSize(width: roomy.collapsed.width, height: 0), roomy.peek),
                            (roomy.expanded, CGSize(width: roomy.collapsed.width, height: 0))] {

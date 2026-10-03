@@ -260,10 +260,12 @@ final class NotchWindowHost: NSObject, CAAnimationDelegate {
         // Only a width change eases steadily; anything that also grows taller
         // keeps the island's usual springs.
         let steady = steady && start.height == size.height
-        let motion = NotchMotion.frames(from: start, to: size, steady: steady)
-        // Each frame's centre, from the new one: it travels with the width.
+        // Each frame's centre, from the new one, even when only the shift changes.
         let startOffset = startShift - geometry.surfaceShift
-        let offsets = motion.sizes.map { NotchMotion.offset(at: $0, from: start, to: size, start: startOffset) }
+        let motion = NotchMotion.frames(from: start, to: size, steady: steady, offset: startOffset)
+        let offsets = motion.keyTimes.map {
+            $0 == 1 ? 0 : NotchMotion.offset(at: motion.duration * $0, from: start, to: size, start: startOffset, steady: steady)
+        }
         // Room for the swing past a larger target, and for everything already reserved.
         var envelope = NotchMotion.envelope(from: start, to: size)
         let reach = zip(motion.sizes, offsets).map { $0.width + 2 * abs($1) }.max() ?? 0
@@ -1389,9 +1391,11 @@ private final class NotchCanvas: NSView {
     fileprivate func advanceBackdrop(to target: CFTimeInterval) {
         backdropTicks += 1
         guard let timeline = motionTimeline else { synchronizeBackdrop(); return }
-        let size = NotchMotion.size(at: max(0, target - timeline.begin), from: timeline.from, to: timeline.to,
+        let elapsed = max(0, target - timeline.begin)
+        let size = NotchMotion.size(at: elapsed, from: timeline.from, to: timeline.to,
                                     steady: timeline.steady)
-        let offset = NotchMotion.offset(at: size, from: timeline.from, to: timeline.to, start: timeline.offset)
+        let offset = NotchMotion.offset(at: elapsed, from: timeline.from, to: timeline.to, start: timeline.offset,
+                                       steady: timeline.steady)
         setBackdropContour(inCanvas(silhouettePath(for: size, offset: offset)))
     }
 

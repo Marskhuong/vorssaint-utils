@@ -2282,14 +2282,16 @@ enum NotchMotion {
         return sides.isEmpty ? 0 : time
     }
 
-    /// When both sides stay within `settledDistance` of their targets for good.
-    static func settlingTime(from: CGSize, to: CGSize, steady: Bool = false) -> TimeInterval {
+    /// When the size and centre stay within `settledDistance` of their targets for good.
+    static func settlingTime(from: CGSize, to: CGSize, steady: Bool = false, offset startOffset: CGFloat = 0) -> TimeInterval {
         let step = 1.0 / 240
         var settled = step
         var time = step
         while time < 2 {
             let size = size(at: time, from: from, to: to, steady: steady)
-            if abs(size.width - to.width) > settledDistance || abs(size.height - to.height) > settledDistance {
+            let offset = offset(at: time, from: from, to: to, start: startOffset, steady: steady)
+            if abs(size.width - to.width) > settledDistance || abs(size.height - to.height) > settledDistance
+                || abs(offset) > settledDistance {
                 settled = time + step
             }
             time += step
@@ -2297,19 +2299,20 @@ enum NotchMotion {
         return settled
     }
 
-    /// How far a moving island's centre still sits from its new one, at a
-    /// size of its motion: the centre travels with the width, so both sides
-    /// follow the same spring. A move with no change of width lands at once.
-    static func offset(at size: CGSize, from: CGSize, to: CGSize, start: CGFloat) -> CGFloat {
-        guard start != 0, from.width != to.width else { return 0 }
-        return start * (1 - (size.width - from.width) / (to.width - from.width))
+    /// How far a moving island's centre still sits from its new one. It
+    /// travels with the width's spring, or eases on its own when two notices
+    /// have the same total width but different sides.
+    static func offset(at time: TimeInterval, from: CGSize, to: CGSize, start: CGFloat, steady: Bool = false) -> CGFloat {
+        guard start != 0 else { return 0 }
+        let spring = from.width == to.width ? steadyWidth : spring(from: from.width, to: to.width, width: true, steady: steady)
+        return start * CGFloat(1 - spring.progress(at: time))
     }
 
     /// Sizes at a steady rate, ending exactly at `to`, and where each falls
-    /// within the duration.
+    /// within the duration, including a centre still on its way there.
     static func frames(from: CGSize, to: CGSize,
-                       steady: Bool = false) -> (sizes: [CGSize], keyTimes: [Double], duration: TimeInterval) {
-        let duration = settlingTime(from: from, to: to, steady: steady)
+                       steady: Bool = false, offset: CGFloat = 0) -> (sizes: [CGSize], keyTimes: [Double], duration: TimeInterval) {
+        let duration = settlingTime(from: from, to: to, steady: steady, offset: offset)
         let count = max(1, Int((duration * 120).rounded(.up)))
         let keyTimes = (0...count).map { Double($0) / Double(count) }
         let sizes = keyTimes.map { $0 == 1 ? to : size(at: duration * $0, from: from, to: to, steady: steady) }

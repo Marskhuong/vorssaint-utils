@@ -1971,6 +1971,14 @@ enum FeatureCatalogTests {
                 == FeatureSettingsDestination(.monitor, sectionAnchor: .fanControl),
                "shared monitor destinations distinguish the dedicated fan controls")
         let settingsRouter = SettingsRouter.shared
+        let companionRouter = SettingsRouter()
+        companionRouter.request(AppFeature.notchMascot.settingsDestination)
+        suite.expect(companionRouter.page == .notch && companionRouter.notchCompanion
+                     && pageVisible(companionRouter.page, available: [.notchMascot]),
+                     "the companion's settings remain reachable when it alone is installed, including the install-island prompt")
+        suite.expect(pageVisible(companionRouter.page, available: [.notch, .notchMascot])
+                     && !pageVisible(companionRouter.page, available: []),
+                     "the companion shares the installed island's page without exposing it when every extension is uninstalled")
         var settingsRequestCount = 0
         var settingsRequestsPublishedReady = true
         let settingsRequestObservation = settingsRouter.$requestID
