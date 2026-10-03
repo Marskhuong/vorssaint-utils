@@ -52,7 +52,7 @@ struct NotchMascotSettings: View {
                 header
                 if !islandOn { islandNote }
                 NotchMascotStageCard(look: look, side: restingSide, awake: enabled, canGreet: enabled && islandOn,
-                                     text: text, language: l10n.language)
+                                     visits: visits, reactions: reactions, text: text, language: l10n.language)
                 appearance
                 behavior
                 commandBarCard
@@ -272,6 +272,9 @@ private struct NotchMascotStageCard: View {
     let awake: Bool
     /// Whether it can say hello in the island itself.
     let canGreet: Bool
+    /// Turned on, each plays at once what it brings.
+    let visits: Bool
+    let reactions: Bool
     let text: NotchMascotStrings
     let language: AppLanguage
     @State private var visit: NotchMascotVisit?
@@ -339,6 +342,14 @@ private struct NotchMascotStageCard: View {
             // To the camera's other side: behind it, across and out, as in the island.
             guard awake, visit == nil else { return }
             startVisit(.cross, greeting: .wink)
+        }
+        .onChange(of: visits) { _, visits in
+            // Its visits back on, it takes one right away.
+            if visits { play(.visit) }
+        }
+        .onChange(of: reactions) { _, reactions in
+            // Reacting again, it perks up.
+            if reactions, awake, visit == nil { react(.perk) }
         }
         .onChange(of: look) { _, _ in
             // A new look, and it is glad of it, once the choosing settles.
