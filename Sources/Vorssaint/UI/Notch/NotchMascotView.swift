@@ -922,6 +922,10 @@ final class NotchMascotHostView: NSView {
             self.pettingWork = nil
             self.lastPetting = CACurrentMediaTime()
             self.mascot.react(.love, lift: 0)
+            // A soft tick under a finger on the trackpad, as the hearts come.
+            if NotchSupport.usesHapticFeedback() {
+                NSHapticFeedbackManager.defaultPerformer.perform(.generic, performanceTime: .now)
+            }
         }
         pettingWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: work)
