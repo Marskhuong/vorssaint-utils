@@ -41,6 +41,11 @@ enum NotchMascotTests {
         suite.expect(began(NotchCalendarCountdown(event: meeting, ongoing: true), 0.5) && began(nil, 1)
                      && began(NotchCalendarCountdown(event: next, ongoing: false), -0.8),
                      "the companion perks up as the event it counted down to begins, whatever the island shows next")
+        suite.expect(NotchMascotSupport.timerReaction(finishing: .timer) == .surprised
+                     && NotchMascotSupport.timerReaction(finishing: .focus) == .celebrate
+                     && NotchMascotSupport.timerReaction(finishing: .shortBreak) == .ready
+                     && NotchMascotSupport.timerReaction(finishing: .longBreak) == .ready,
+                     "a timer's ring startles it, a finished focus session makes it glad and a break's end gets it ready")
         suite.expect(!began(nil, -120) && !began(NotchCalendarCountdown(event: next, ongoing: false), -300)
                      && !began(nil, 600) && !began(NotchCalendarCountdown(event: meeting, ongoing: false), 1)
                      && !NotchMascotSupport.eventBegan(from: NotchCalendarCountdown(event: meeting, ongoing: true), to: nil,

@@ -80,11 +80,12 @@ final class NotchTimerService: ObservableObject {
         // The notice takes the strip it watched from.
         NotchService.shared.endMascotCountdown(retreating: false)
         let text = FeatureStrings.notchActivities(L10n.shared.language)
+        let reaction = NotchMascotSupport.timerReaction(finishing: session.phase)
         NotchService.shared.show(NotchNotice(event: .timer,
             title: session.cycleFinished ? text.pomodoroFinished : text.finished,
-            detail: text.phase(session.phase), symbol: "timer", mascot: .surprised))
-        // Startled in the notice, or where it is when the notice cannot show.
-        NotchService.shared.reactMascot(.surprised)
+            detail: text.phase(session.phase), symbol: "timer", mascot: reaction))
+        // It takes the news in the notice, or where it is when the notice cannot show.
+        NotchService.shared.reactMascot(reaction)
         alert.start(enabled: NotchTimerSupport.isSoundEnabled())
     }
 

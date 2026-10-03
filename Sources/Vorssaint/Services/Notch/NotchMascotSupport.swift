@@ -1145,6 +1145,17 @@ enum NotchMascotSupport {
     /// with a ready face at most this often, since agents start many turns.
     static let agentStartInterval: TimeInterval = 600
 
+    /// How it takes a countdown running out: startled by a plain timer's
+    /// ring, glad at the end of a focus session, and ready to go again when
+    /// a break is over.
+    static func timerReaction(finishing phase: NotchTimerPhase) -> NotchMascotReaction {
+        switch phase {
+        case .focus: return .celebrate
+        case .shortBreak, .longBreak: return .ready
+        case .timer, .stopwatch: return .surprised
+        }
+    }
+
     /// Whether the event the island counted down to, as `before`, began as
     /// the countdown became `after` at `now`: it perks up then. Only just
     /// begun, so a Mac that slept through the start, or an event moved or
