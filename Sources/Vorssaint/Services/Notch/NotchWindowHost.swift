@@ -142,6 +142,10 @@ final class NotchWindowHost: NSObject, CAAnimationDelegate {
 
     func endMascotBridge() { canvas.hideMascotBridge() }
 
+    func reactMascotBridge(_ event: NotchMascotReactionEvent, lift: CGFloat) {
+        canvas.reactMascotBridge(event, lift: lift)
+    }
+
     func hide(animated: Bool, transitionContent: NotchContentTransition = .dismiss) {
         guard isPresented else { return }
         let animate = animated && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
@@ -1585,6 +1589,11 @@ private final class NotchCanvas: NSView {
         slide.duration = duration
         slide.timingFunction = CAMediaTimingFunction(controlPoints: 0.22, 1, 0.36, 1)
         layer.add(slide, forKey: "slide")
+    }
+
+    func reactMascotBridge(_ event: NotchMascotReactionEvent, lift: CGFloat) {
+        guard mascotBridgeSpot != nil else { return }
+        mascotBridge.react(event, lift: lift)
     }
 
     func hideMascotBridge() {

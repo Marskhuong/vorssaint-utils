@@ -254,6 +254,8 @@ final class NotchService: ObservableObject {
     /// or closes around it, and the strip and the page leave theirs out.
     @Published private(set) var mascotBridging = false
     private var mascotBridgeWork: DispatchWorkItem?
+    /// How high the stand-in hops for a reaction, as the strip it stands for does.
+    private var mascotBridgeLift: CGFloat = 0
     /// The closed island showed the companion at rest as of the last refresh.
     /// Activities arrive on live state before the next one runs, so the
     /// island can still tell the companion was there and crossfade from it.
@@ -3683,7 +3685,9 @@ extension NotchService {
         // meanwhile, it comes back out to its place rather than appear there.
         if ended.kind.reaction != nil, mascotRestsInView, CACurrentMediaTime() >= ended.start + ended.duration - 0.05,
            !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
-            let back = NotchMascotVisit(id: UUID(), kind: .arrive, greeting: .idle, start: CACurrentMediaTime())
+            // From the moment it went behind the camera, which a late timer missed.
+            let back = NotchMascotVisit(id: UUID(), kind: .arrive, greeting: .idle,
+                                        start: max(ended.start + ended.duration, CACurrentMediaTime() - 0.1))
             setMascotVisit(back)
             let work = DispatchWorkItem { [weak self] in self?.endMascotVisit() }
             mascotVisitWork = work
@@ -3902,10 +3906,15 @@ extension NotchService {
     /// closes around it now: its centre's offset from the camera's, before
     /// the change. Nil when it is not standing there, as on a visit.
     func mascotBridgeStart(opening: Bool) -> CGFloat? {
+        // Only where it shows: a notice, a peek, the drop hint or an island
+        // hidden until hover draws no companion to keep.
         guard mascotVisit == nil, geometry.isNotched, !geometry.floats,
               !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
-              opening ? !expanded && mascotRestedInView : expanded && mascotResidentShows else { return nil }
+              opening ? !expanded && mascotRestsInView && canHostMascotVisit() : expanded && mascotResidentShows
+        else { return nil }
         let from = opening ? mascotClosedOffset : mascotOpenOffset
+        mascotBridgeLift = opening ? mascotClosedTrack.hop(0.22)
+            : mascotResidentTrack(surfaceWidth: expandedSize.width).hop(0.22)
         // In its own layer before the island changes, which redraws the
         // window at once: shown only afterwards, it was gone for two frames.
         mascotBridgeWork?.cancel(); mascotBridgeWork = nil
@@ -3919,7 +3928,8 @@ extension NotchService {
     /// fades in and settles; then they show it again. Without a place for
     /// it after the change, it goes with the content as before.
     func bridgeMascot(from: CGFloat, opening: Bool) {
-        guard opening ? mascotResidentShows : mascotRestsInView && geometry.restingWingWidth > 0 else {
+        // Closed, it shows again only with nothing over the resting island.
+        guard opening ? mascotResidentShows : mascotRestsInView && canHostMascotVisit() else {
             mascotBridging = false
             windowHost?.endMascotBridge()
             return
@@ -3948,13 +3958,15 @@ extension NotchService {
                                  baseline: geometry.stripHeight / 2 + 0.5, duration: duration)
     }
 
-    /// Its centre's offset from the camera's where it rests closed.
-    private var mascotClosedOffset: CGFloat {
-        let track = NotchMascotSupport.track(stripWidth: geometry.collapsed.width, stripHeight: geometry.stripHeight,
-                                             wing: geometry.restingWingWidth, cameraWidth: geometry.cameraWidth,
-                                             floats: false, bodyHeight: geometry.stripBodyHeight, side: mascotSide)
-        return track.rest - geometry.collapsed.width / 2
+    /// Where it rests in the closed island.
+    private var mascotClosedTrack: NotchMascotTrack {
+        NotchMascotSupport.track(stripWidth: geometry.collapsed.width, stripHeight: geometry.stripHeight,
+                                 wing: geometry.restingWingWidth, cameraWidth: geometry.cameraWidth,
+                                 floats: false, bodyHeight: geometry.stripBodyHeight, side: mascotSide)
     }
+
+    /// Its centre's offset from the camera's where it rests closed.
+    private var mascotClosedOffset: CGFloat { mascotClosedTrack.rest - geometry.collapsed.width / 2 }
 
     /// ... and where the open island keeps it.
     private var mascotOpenOffset: CGFloat {
@@ -4082,7 +4094,12 @@ extension NotchService {
         // Open, it plays where the island keeps it beside the camera. An
         // activity that has just taken its place finds it still there.
         if mascotResidentShows || mascotRestsInView {
-            mascotReaction = NotchMascotReactionEvent(id: UUID(), reaction: pending.reaction, start: now)
+            let event = NotchMascotReactionEvent(id: UUID(), reaction: pending.reaction, start: now)
+            mascotReaction = event
+            // Standing in the window's own layer as the island opens or
+            // closes, it plays the reaction there too, in step with the one
+            // the page or the strip shows once the island settles.
+            if mascotBridging { windowHost?.reactMascotBridge(event, lift: mascotBridgeLift) }
         } else {
             beginMascotCameo(pending.reaction, lingering: mascotJustRested && compactActivity != nil)
         }
