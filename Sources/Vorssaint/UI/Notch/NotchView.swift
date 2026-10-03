@@ -19,6 +19,20 @@ struct NotchView: View {
 
     var body: some View {
         surface
+            // An activity arriving over the resting companion crossfades into
+            // it, and one ending crossfades back into the companion, instead of
+            // cutting from one to the other in a frame. A song leaving has its
+            // own departure. A companion that stays to react is drawn over the
+            // new strip where it stood, so the swap under it is left
+            // unanimated: two of it crossfading in one place would dim it.
+            .transaction(value: service.compactActivity) { transaction in
+                guard !reduceMotion, !service.mascotLingers else { return }
+                let arrives = service.compactActivity != nil && service.mascotJustRested
+                let leaves = service.compactActivity == nil && service.mascotAtRest
+                    && service.departingMusic == nil && service.lingeringMusic == nil
+                guard arrives || leaves else { return }
+                transaction.animation = .easeInOut(duration: 0.2)
+            }
             .frame(width: service.surfaceSize.width, height: service.surfaceSize.height, alignment: .top)
             .foregroundStyle(.white)
             // The window server leaves Liquid Glass out of its hit test, so a

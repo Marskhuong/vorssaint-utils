@@ -46,7 +46,7 @@ enum CommandBarEmojiContract {
     final class NotchService {
         static let shared = NotchService()
         var reactions: [NotchMascotReaction] = []
-        func reactMascot(_ reaction: NotchMascotReaction) { reactions.append(reaction) }
+        func reactMascot(_ reaction: NotchMascotReaction, after delay: TimeInterval = 0) { reactions.append(reaction) }
     }
     final class Service {
         typealias NotchService = CommandBarEmojiContract.NotchService

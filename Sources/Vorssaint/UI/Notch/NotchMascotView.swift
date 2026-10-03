@@ -946,10 +946,11 @@ final class NotchMascotHostView: NSView {
         cameoWork?.cancel(); cameoWork = nil
         mascot.wake(animated: false)
         mascot.playVisit(path(), greeting: visit.greeting, baseline: baseline, stand: stand, start: visit.start)
-        guard case .cameo(let reaction) = visit.kind else { return }
+        guard let reaction = visit.kind.reaction else { return }
         // A strip drawn again after it landed picks the visit up there, and
-        // does not play the reaction late.
-        let wait = visit.start + NotchMascotMotion.cameoArrival - CACurrentMediaTime()
+        // does not play the reaction late. Lingering, it is already there.
+        let arrival = visit.kind == .linger(reaction) ? 0 : NotchMascotMotion.cameoArrival
+        let wait = visit.start + arrival - CACurrentMediaTime()
         guard wait > -0.2 else { return }
         let work = DispatchWorkItem { [weak self] in
             self?.cameoWork = nil
@@ -1057,21 +1058,30 @@ struct NotchMascotActivityVisit: ViewModifier {
         // A lap or a homecoming ends where it rests, which an activity's
         // strip has no place for, so only what ends out of sight comes over it.
         let visit = track == nil ? nil : service.mascotVisit.flatMap { $0.kind.endsOutOfSight ? $0 : nil }
-        // Watching a countdown it covers only the timer's mark, as the black
-        // of the closed island, and the reading stays in view.
-        let watches = visit?.kind.watchesTimer == true
-        let stepsAside = visit != nil && service.mascotStepsAside && !watches
+        // Watching a countdown or dancing to music beside a camera, it covers
+        // only the wing it stands in, as the black of the closed island, and
+        // the reading or the music's bars stay in view. A capsule has no
+        // wings, so what it shows steps aside instead.
+        let hidden = track?.hidden
+        let ownWing = visit?.kind.takesOnlyItsWing == true && hidden != nil
+        let stepsAside = visit != nil && service.mascotStepsAside && !ownWing
+        // A countdown is watched from the camera's left whatever the side.
+        let rightWing = track?.mirrored == true && visit?.kind.watchesTimer == false
         content
             .opacity(stepsAside ? 0 : 1)
             .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: stepsAside)
             .overlay(alignment: .topLeading) {
-                if watches, let track, let hidden = track.hidden {
+                // Handed back with the strip, halfway home, so what it covered
+                // returns as it goes behind the camera.
+                if ownWing, service.mascotStepsAside, let track, let hidden {
                     Color.black
-                        .frame(width: hidden.lowerBound, height: track.height)
+                        .frame(width: rightWing ? track.width - hidden.upperBound : hidden.lowerBound,
+                               height: track.height)
+                        .offset(x: rightWing ? hidden.upperBound : 0)
                         .transition(.opacity)
                 }
             }
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: watches)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: ownWing && service.mascotStepsAside)
             .overlay(alignment: .top) {
                 if let track, let visit {
                     NotchMascotTrackView(look: NotchMascotSupport.look(), track: track, rests: false, visit: visit,

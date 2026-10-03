@@ -172,6 +172,8 @@ enum NotchPresentationRefreshContract {
         var commandBarClosings = 0
         func commandBarDidClose() { commandBarClosings += 1 }
         func flushMascotReaction() {}
+        var mascotRestsInView = false
+        var mascotRestedInView = false
         var selectedMetric: Bool?
         var expanded = true
         var peeking = false, dragPlaceholder = false, compactActivityIsVisible = false
@@ -603,6 +605,17 @@ enum NotchPresentationRefreshContract {
         stopped.compactActivityIsVisible = false
         stopped.expanded = true
         suite.expect(stopped.lingeringMusic == nil, "an open island draws its page, not a lingering song")
+
+        let resting = Service()
+        resting.expanded = false
+        resting.mascotRestsInView = true
+        resting.refreshPresentation(animated: false)
+        suite.expect(resting.mascotRestedInView,
+                     "a refresh remembers the companion resting in view, so what arrives over it can crossfade from it")
+        resting.expanded = true
+        resting.refreshPresentation(animated: false)
+        suite.expect(!resting.mascotRestedInView,
+                     "the open island hides the closed one, so nothing crossfades from a companion it does not show")
 
         let closing = Service()
         closing.expanded = false

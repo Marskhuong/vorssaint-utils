@@ -17,6 +17,8 @@ enum NotchMascotTests {
         cameoContracts(suite)
         farewellContracts(suite)
         crossContracts(suite)
+        arriveContracts(suite)
+        lingerContracts(suite)
         previewContracts(suite)
         countdownContracts(suite)
         activityTrackContracts(suite)
@@ -308,6 +310,10 @@ enum NotchMascotTests {
                                              floats: false, bodyHeight: 32, side: .right)
         let capsule = NotchMascotSupport.track(stripWidth: 76, stripHeight: 24, wing: 0, cameraWidth: 0,
                                                floats: true, bodyHeight: 20)
+        suite.expect(NotchMascotVisit.Kind.cameo(.groove).takesOnlyItsWing && NotchMascotVisit.Kind.countdown(5).takesOnlyItsWing
+                     && NotchMascotVisit.Kind.retreat.takesOnlyItsWing && !NotchMascotVisit.Kind.cameo(.celebrate).takesOnlyItsWing
+                     && !NotchMascotVisit.Kind.pass.takesOnlyItsWing,
+                     "dancing to music or watching a countdown it takes only its wing, and other moments the whole strip")
         suite.expect(NotchMascotVisit.Kind.farewell.endsOutOfSight && !NotchMascotVisit.Kind.farewell.watchesTimer
                      && NotchMascotMotion.duration(of: .farewell) < 1,
                      "a farewell is over in under a second and ends out of sight")
@@ -331,6 +337,49 @@ enum NotchMascotTests {
                              "in a capsule it walks out past the far end")
             }
         }
+    }
+
+    private static func lingerContracts(_ suite: TestSuite) {
+        let right = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                             floats: false, bodyHeight: 32, side: .right)
+        let capsule = NotchMascotSupport.track(stripWidth: 76, stripHeight: 24, wing: 0, cameraWidth: 0,
+                                               floats: true, bodyHeight: 20)
+        suite.expect(NotchMascotVisit.Kind.linger(.ready).endsOutOfSight
+                     && NotchMascotVisit.Kind.linger(.ready).reaction == .ready
+                     && NotchMascotVisit.Kind.cameo(.love).reaction == .love && NotchMascotVisit.Kind.lap.reaction == nil
+                     && NotchMascotMotion.duration(of: .linger(.ready))
+                        == NotchMascotMotion.duration(of: .cameo(.ready)) - NotchMascotMotion.cameoArrival,
+                     "lingering it skips the way out from behind the camera and keeps the rest of a cameo")
+        for (name, track) in [("right wing", right), ("capsule", capsule)] {
+            let path = NotchMascotMotion.path(for: .linger(.ready), on: track)
+            let hold = NotchMascotMotion.cameoHold(.ready)
+            let held = path.keyTimes.indices.filter { path.keyTimes[$0] * path.duration <= hold }
+            suite.expect(!held.isEmpty && held.allSatisfy { abs(path.x[$0] - track.rest) < 0.01 && path.lift[$0] == 0 },
+                         "lingering in a \(name), it stays where it rested for its whole reaction")
+            if let hidden = track.hidden {
+                let end = path.x.last ?? 0
+                suite.expect(end - track.size / 2 >= hidden.lowerBound && end + track.size / 2 <= hidden.upperBound,
+                             "lingering in a \(name), it ends behind the camera")
+            } else {
+                suite.expect((path.x.last ?? 0) >= track.width + track.size / 2, "lingering in a capsule, it leaves at the far end")
+            }
+        }
+    }
+
+    private static func arriveContracts(_ suite: TestSuite) {
+        let left = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                            floats: false, bodyHeight: 32)
+        let capsule = NotchMascotSupport.track(stripWidth: 76, stripHeight: 24, wing: 0, cameraWidth: 0,
+                                               floats: true, bodyHeight: 20)
+        suite.expect(NotchMascotMotion.path(for: .arrive, on: left) == NotchMascotMotion.path(for: .home, on: left)
+                     && !NotchMascotVisit.Kind.arrive.endsOutOfSight,
+                     "switched on beside a camera, it comes out from behind it as it does back from the bar")
+        let path = NotchMascotMotion.path(for: .arrive, on: capsule)
+        suite.expect((path.x.first ?? 0) <= -capsule.size / 2 && abs((path.x.last ?? 0) - capsule.rest) < 0.01
+                     && path.greeting.lowerBound == 0,
+                     "switched on in a capsule, it hops in at the near end instead of appearing in its middle")
+        suite.expect(path.lift.allSatisfy { capsule.baseline - $0 - capsule.size / 2 >= capsule.ceiling + 1 },
+                     "hopping into a capsule, it never touches the capsule's top")
     }
 
     private static func crossContracts(_ suite: TestSuite) {

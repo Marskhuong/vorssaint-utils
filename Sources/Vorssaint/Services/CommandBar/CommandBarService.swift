@@ -2626,8 +2626,9 @@ final class CommandBarService: ObservableObject {
         farewell = .happy
         hide()
         // Back in the island it hops for what was run, unless the command
-        // gives it a reaction of its own, which takes this one's place.
-        NotchService.shared.reactMascot(.celebrate)
+        // gives it a reaction of its own, which takes this one's place: it
+        // waits a moment for one, as Keep Awake's arrives just after.
+        NotchService.shared.reactMascot(.celebrate, after: 0.3)
         entry.run(value)
     }
 

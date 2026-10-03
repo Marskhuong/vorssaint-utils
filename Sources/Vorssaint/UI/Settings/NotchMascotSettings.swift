@@ -300,7 +300,6 @@ private struct NotchMascotStageCard: View {
             .accessibilityHint(awake ? text.previewHint : "")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { playNext() }
-            .help(awake ? text.previewHint : "")
             HStack(alignment: .firstTextBaseline) {
                 Text(text.momentsTitle).font(.headline)
                 Spacer(minLength: 12)
@@ -323,7 +322,9 @@ private struct NotchMascotStageCard: View {
                 }
             }
             .animation(reduceMotion ? nil : .easeOut(duration: 0.2), value: visit == nil)
-            Label(text.petTip, systemImage: "hand.point.up.left")
+            // Said here rather than as a tooltip, which came up over the
+            // companion just as a resting pointer pets it.
+            Label(text.previewHint + " " + text.petTip, systemImage: "hand.point.up.left")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

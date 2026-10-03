@@ -656,13 +656,20 @@ struct NotchMascotVisit: Equatable {
         /// Moved to the camera's other side: from where it rested, behind
         /// the camera, across, and out to its new place.
         case cross
+        /// Switched on: out from behind the camera to its place as the wings
+        /// open, or in at a capsule's near end.
+        case arrive
+        /// Still where it rested as an activity took its place: it plays a
+        /// reaction right there and goes behind the camera, rather than
+        /// leaving its place only to come back out for it.
+        case linger(NotchMascotReaction)
 
         /// It ends out of sight, past the strip's end or behind the camera,
         /// so it can cross an activity's strip and leave nothing behind.
         var endsOutOfSight: Bool {
             switch self {
-            case .pass, .cameo, .countdown, .retreat, .farewell: return true
-            case .lap, .home, .cross: return false
+            case .pass, .cameo, .countdown, .retreat, .farewell, .linger: return true
+            case .lap, .home, .cross, .arrive: return false
             }
         }
 
@@ -671,6 +678,25 @@ struct NotchMascotVisit: Equatable {
             switch self {
             case .countdown, .retreat: return true
             default: return false
+            }
+        }
+
+        /// Over an activity beside a camera it takes only the wing it stands
+        /// in: the timer's mark while it watches a countdown, or its own wing
+        /// as it dances, with the music's bars playing on in the other.
+        var takesOnlyItsWing: Bool {
+            switch self {
+            case .countdown, .retreat, .cameo(.groove), .linger(.groove): return true
+            default: return false
+            }
+        }
+
+        /// The reaction it comes out for, played as it lands or at once
+        /// where it already stands.
+        var reaction: NotchMascotReaction? {
+            switch self {
+            case .cameo(let reaction), .linger(let reaction): return reaction
+            default: return nil
             }
         }
     }
@@ -777,8 +803,9 @@ enum NotchMascotMotion {
         switch kind {
         case .lap: return lapDuration
         case .pass: return passDuration
-        case .home: return homeDuration
+        case .home, .arrive: return homeDuration
         case .cameo(let reaction): return cameoArrival + cameoHold(reaction) + cameoExit
+        case .linger(let reaction): return cameoHold(reaction) + cameoExit
         case .countdown(let total): return total + countdownLinger + cameoExit
         case .retreat: return cameoExit
         case .farewell: return farewellDuration
@@ -810,8 +837,10 @@ enum NotchMascotMotion {
             case .pass: return pass(on: track)
             case .home: return home(on: track)
             case .cameo(let reaction): return cameo(on: track, hold: cameoHold(reaction))
+            case .linger(let reaction): return linger(on: track, hold: cameoHold(reaction))
             case .farewell: return farewell(on: track)
             case .cross: return cross(on: track)
+            case .arrive: return arrive(on: track)
             case .countdown, .retreat: return NotchMascotPath()
             }
         }
@@ -908,6 +937,18 @@ enum NotchMascotMotion {
                       start: behind, track: track, duration: duration)
     }
 
+    /// Where it rests, `hold` for its reaction, and then behind the camera
+    /// as a cameo leaves, or out at a capsule's far end.
+    static func linger(on track: NotchMascotTrack, hold: TimeInterval) -> NotchMascotPath {
+        let duration = hold + cameoExit
+        guard let hidden = track.hidden else {
+            return sample([.stay(hold), .walk(to: track.width + track.size, cameoExit)],
+                          start: track.rest, track: track, duration: duration)
+        }
+        return sample([.stay(hold), .hop(to: track.behindCamera(hidden, margin: 1), cameoExit, height: track.hop(0.16))],
+                      start: track.rest, track: track, duration: duration)
+    }
+
     /// The last `total` seconds of a countdown: out from behind the camera
     /// over the timer's mark, eyes on the reading, a small hop with every
     /// second that goes, and back behind the camera just after it runs out.
@@ -937,6 +978,17 @@ enum NotchMascotMotion {
             let time = keyTime * duration
             return time >= cameoArrival && time <= total + countdownLinger ? 0.07 : gaze
         }
+        return path
+    }
+
+    /// Switched on: as it comes back from the Command Bar's drop beside a
+    /// camera. A capsule has no camera to come out from, and no drop rose
+    /// into it, so it hops in at the near end instead of appearing in place.
+    static func arrive(on track: NotchMascotTrack) -> NotchMascotPath {
+        guard track.hidden == nil else { return home(on: track) }
+        var path = sample([.stay(0.06), .hop(to: track.rest, 0.46, height: track.hop(0.3))],
+                          start: -track.size, track: track, duration: homeDuration)
+        path.greeting = 0...0.52
         return path
     }
 
