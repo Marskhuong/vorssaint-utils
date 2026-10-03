@@ -40,7 +40,7 @@ enum NotchMascotTests {
         let began = { NotchMascotSupport.eventBegan(from: counting, to: $0, at: start.addingTimeInterval($1)) }
         suite.expect(began(NotchCalendarCountdown(event: meeting, ongoing: true), 0.5) && began(nil, 1)
                      && began(NotchCalendarCountdown(event: next, ongoing: false), -0.8),
-                     "the companion perks up as the event it counted down to begins, whatever the island shows next")
+                     "the companion bounces as the event it counted down to begins, whatever the island shows next")
         suite.expect(NotchMascotSupport.timerReaction(finishing: .timer) == .surprised
                      && NotchMascotSupport.timerReaction(finishing: .focus) == .celebrate
                      && NotchMascotSupport.timerReaction(finishing: .shortBreak) == .ready
@@ -478,9 +478,9 @@ enum NotchMascotTests {
         suite.expect(NotchMascotMoment.agents.reaction == .ready && NotchMascotMoment.agents.followUp == .celebrate
                      && NotchMascotMoment.allCases.filter { $0.followUp != nil } == [.agents],
                      "an AI agent's moment gets to work, then celebrates, and only it plays two beats")
-        suite.expect(Set(NotchMascotMoment.allCases.compactMap(\.reaction))
-                        == Set(NotchMascotReaction.allCases).subtracting([.yawn]),
-                     "every reaction but the yawn the preview plays when it is switched off has a moment to try")
+        suite.expect(Set(NotchMascotMoment.allCases.compactMap(\.reaction)) == Set(NotchMascotReaction.allCases)
+                     && NotchMascotMoment.eventStarts.reaction == .bounce && NotchMascotMoment.lowBattery.reaction == .yawn,
+                     "every reaction has a moment to try, an event beginning bounces and a low battery yawns")
         for language in AppLanguage.allCases {
             let text = FeatureStrings.notchMascot(language)
             let names = NotchMascotMoment.allCases.map { text.moment($0, language: language) }

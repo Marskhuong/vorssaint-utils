@@ -467,7 +467,7 @@ final class NotchMascotRig: NSObject {
             case .surprised, .flash: flashFace(.surprised, duration: 0.8)
             case .confused: flashFace(.confused, duration: 1.1)
             case .yawn, .hush: flashFace(.sleepy, duration: 1.1)
-            case .perk: flashFace(.alert, duration: 1)
+            case .perk, .bounce: flashFace(.alert, duration: 1)
             case .ready: flashFace(.determined, duration: 1)
             case .groove: flashFace(.happy, duration: 1.4)
             }
@@ -507,6 +507,25 @@ final class NotchMascotRig: NSObject {
         case .perk:
             flashFace(.alert, duration: 1)
             hop(height: lift * 0.55)
+        case .bounce:
+            // Time to go: two quick hops, the second lower, and a small
+            // rebound, squashing as it lands and stretching to leave again.
+            flashFace(.alert, duration: reaction.length)
+            let height = max(1, lift * 0.6)
+            let bounce = CAKeyframeAnimation(keyPath: "transform.translation.y")
+            bounce.values = [0, -height, 0, -height * 0.7, 0, -height * 0.15, 0]
+            bounce.keyTimes = [0, 0.14, 0.32, 0.46, 0.63, 0.75, 0.88]
+            bounce.timingFunctions = (0..<6).map { CAMediaTimingFunction(name: $0 % 2 == 0 ? .easeOut : .easeIn) }
+            bounce.duration = 0.95
+            bounce.isAdditive = true
+            hopper.add(bounce, forKey: "hop")
+            let squash = CAKeyframeAnimation(keyPath: "transform")
+            squash.values = [squashed(0), squashed(-0.12), squashed(0), squashed(0.14), squashed(-0.1), squashed(0),
+                             squashed(0.12), squashed(0), squashed(0.04), squashed(0)]
+                .map { NSValue(caTransform3D: $0) }
+            squash.keyTimes = [0, 0.04, 0.14, 0.32, 0.36, 0.46, 0.63, 0.7, 0.8, 0.88]
+            squash.duration = 0.95
+            squasher.add(squash, forKey: "squash")
         case .hush:
             // Eyes shut for a moment as it ducks, then back.
             let shut = CAKeyframeAnimation(keyPath: "transform.scale.y")

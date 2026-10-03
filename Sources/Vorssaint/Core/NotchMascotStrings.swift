@@ -106,12 +106,14 @@ struct NotchMascotStrings {
         case .timeIsUp: return FeatureStrings.notchActivities(language).finished
         case .music: return FeatureStrings.radialMenu(language).mediaNowPlaying
         case .agents: return FeatureStrings.notchAgents(language).title
+        case .eventStarts: return FeatureStrings.notchCalendar(language).ongoing
         case .downloadFinished: return FeatureStrings.notchFiles(language).completed
         case .downloadFailed: return downloadFailed
         case .screenshot: return FeatureStrings.screenshot(language).pageTitle
         case .micMuted: return Strings.localized(language).micMutedHUD
         case .keepAwake: return Strings.localized(language).keepAwakeTitle
         case .charging: return FeatureStrings.notch(language).charging
+        case .lowBattery: return FeatureStrings.notch(language).lowBattery
         case .unlocked: return unlocked
         }
     }

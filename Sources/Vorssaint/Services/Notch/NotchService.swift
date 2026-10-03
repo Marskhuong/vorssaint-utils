@@ -4138,13 +4138,13 @@ extension NotchService {
         reactMascot(.ready, patience: 1)
     }
 
-    /// The event the island counted down to begins: the companion perks up,
+    /// The event the island counted down to begins: the companion bounces,
     /// beside its time left or where it rests.
     fileprivate func syncMascotCalendar() {
         let countdown = NotchCalendarService.shared.countdown
         defer { mascotSawCountdown = countdown }
         guard NotchMascotSupport.eventBegan(from: mascotSawCountdown, to: countdown, at: Date()) else { return }
-        reactMascot(.perk)
+        reactMascot(.bounce)
     }
 
     /// Music started: once the song's strip has settled, the companion comes

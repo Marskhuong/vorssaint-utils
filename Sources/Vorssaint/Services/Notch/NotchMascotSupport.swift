@@ -128,8 +128,11 @@ enum NotchMascotReaction: String, CaseIterable {
     case wakeUp
     /// Keep Awake let go: a yawn.
     case yawn
-    /// Keep Awake took hold, or the microphone opened: wide eyes and a bounce.
+    /// Keep Awake took hold, or the microphone opened: wide eyes and a hop.
     case perk
+    /// An event the island counted down to began: wide eyes and two quick
+    /// hops, time to go.
+    case bounce
     /// The microphone went quiet: eyes shut a moment as it ducks.
     case hush
     /// A timer started: a determined look and a little nod.
@@ -149,6 +152,7 @@ enum NotchMascotReaction: String, CaseIterable {
         case .wakeUp: return 1.6
         case .yawn: return 1.2
         case .perk: return 1.0
+        case .bounce: return 1.0
         case .hush: return 1.0
         case .ready: return 1.0
         case .groove: return 1.6
@@ -159,8 +163,8 @@ enum NotchMascotReaction: String, CaseIterable {
 /// What the Settings preview can act out: a visit, and the moments the
 /// island reacts to, each with the reaction it brings.
 enum NotchMascotMoment: String, CaseIterable, Identifiable {
-    case visit, timerStarted, timeIsUp, music, agents, downloadFinished, downloadFailed, screenshot, micMuted,
-         keepAwake, charging, unlocked
+    case visit, timerStarted, timeIsUp, music, agents, eventStarts, downloadFinished, downloadFailed, screenshot,
+         micMuted, keepAwake, charging, lowBattery, unlocked
 
     var id: String { rawValue }
 
@@ -172,12 +176,14 @@ enum NotchMascotMoment: String, CaseIterable, Identifiable {
         case .timeIsUp: return .surprised
         case .music: return .groove
         case .agents: return .ready
+        case .eventStarts: return .bounce
         case .downloadFinished: return .celebrate
         case .downloadFailed: return .confused
         case .screenshot: return .flash
         case .micMuted: return .hush
         case .keepAwake: return .perk
         case .charging: return .love
+        case .lowBattery: return .yawn
         case .unlocked: return .wakeUp
         }
     }
@@ -195,12 +201,14 @@ enum NotchMascotMoment: String, CaseIterable, Identifiable {
         case .timeIsUp: return "alarm"
         case .music: return "music.note"
         case .agents: return "sparkles"
+        case .eventStarts: return "calendar"
         case .downloadFinished: return "arrow.down.circle"
         case .downloadFailed: return "exclamationmark.triangle"
         case .screenshot: return "camera.viewfinder"
         case .micMuted: return "mic.slash"
         case .keepAwake: return "cup.and.saucer"
         case .charging: return "bolt"
+        case .lowBattery: return "battery.25percent"
         case .unlocked: return "lock.open"
         }
     }
