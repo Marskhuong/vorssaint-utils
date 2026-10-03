@@ -165,11 +165,13 @@ final class SettingsRouter: ObservableObject {
                  sidebarFeature: AppFeature? = nil, replacingVisit: Bool = false) {
         // The companion's settings are a tab of the Dynamic Island page.
         if destination.page == .notchMascot {
-            notchCompanion = true
             request(FeatureSettingsDestination(.notch), targetFeature: targetFeature,
                     sidebarFeature: sidebarFeature, replacingVisit: replacingVisit)
+            notchCompanion = true
             return
         }
+        // Any other request, history included, drops a hint nobody took.
+        notchCompanion = false
         let requestID = UUID()
         let samePage = page == destination.page
         page = destination.page
