@@ -105,6 +105,7 @@ struct NotchMascotStrings {
         case .timerStarted: return timerStarted
         case .timeIsUp: return FeatureStrings.notchActivities(language).finished
         case .music: return FeatureStrings.radialMenu(language).mediaNowPlaying
+        case .agents: return FeatureStrings.notchAgents(language).title
         case .downloadFinished: return FeatureStrings.notchFiles(language).completed
         case .downloadFailed: return downloadFailed
         case .screenshot: return FeatureStrings.screenshot(language).pageTitle

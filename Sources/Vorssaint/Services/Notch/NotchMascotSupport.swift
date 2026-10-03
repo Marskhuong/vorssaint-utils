@@ -159,8 +159,8 @@ enum NotchMascotReaction: String, CaseIterable {
 /// What the Settings preview can act out: a visit, and the moments the
 /// island reacts to, each with the reaction it brings.
 enum NotchMascotMoment: String, CaseIterable, Identifiable {
-    case visit, timerStarted, timeIsUp, music, downloadFinished, downloadFailed, screenshot, micMuted, keepAwake,
-         charging, unlocked
+    case visit, timerStarted, timeIsUp, music, agents, downloadFinished, downloadFailed, screenshot, micMuted,
+         keepAwake, charging, unlocked
 
     var id: String { rawValue }
 
@@ -171,6 +171,7 @@ enum NotchMascotMoment: String, CaseIterable, Identifiable {
         case .timerStarted: return .ready
         case .timeIsUp: return .surprised
         case .music: return .groove
+        case .agents: return .ready
         case .downloadFinished: return .celebrate
         case .downloadFailed: return .confused
         case .screenshot: return .flash
@@ -181,12 +182,19 @@ enum NotchMascotMoment: String, CaseIterable, Identifiable {
         }
     }
 
+    /// What it plays once the first reaction is over, for a moment told in
+    /// two beats: an AI agent getting to work, then done.
+    var followUp: NotchMascotReaction? {
+        self == .agents ? .celebrate : nil
+    }
+
     var symbol: String {
         switch self {
         case .visit: return "figure.walk"
         case .timerStarted: return "timer"
         case .timeIsUp: return "alarm"
         case .music: return "music.note"
+        case .agents: return "sparkles"
         case .downloadFinished: return "arrow.down.circle"
         case .downloadFailed: return "exclamationmark.triangle"
         case .screenshot: return "camera.viewfinder"

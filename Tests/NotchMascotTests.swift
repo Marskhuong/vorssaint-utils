@@ -440,10 +440,14 @@ enum NotchMascotTests {
                      && zip(lap.lift, bigLap.lift).allSatisfy { abs($0 * 1.5 - $1) < 0.001 }
                      && lap.keyTimes == bigLap.keyTimes,
                      "a visit in the preview walks the same way as in the island, only bigger")
+        let beats = NotchMascotMoment.allCases.dropFirst().map { [$0.reaction, $0.followUp].compactMap { $0?.rawValue } }
         suite.expect(NotchMascotMoment.allCases.first == .visit && NotchMascotMoment.visit.reaction == nil
                      && NotchMascotMoment.allCases.dropFirst().allSatisfy { $0.reaction != nil }
-                     && Set(NotchMascotMoment.allCases.compactMap(\.reaction)).count == NotchMascotMoment.allCases.count - 1,
-                     "the preview acts out a visit and one moment for each of its reactions")
+                     && Set(beats).count == beats.count,
+                     "the preview acts out a visit and moments that each play something of their own")
+        suite.expect(NotchMascotMoment.agents.reaction == .ready && NotchMascotMoment.agents.followUp == .celebrate
+                     && NotchMascotMoment.allCases.filter { $0.followUp != nil } == [.agents],
+                     "an AI agent's moment gets to work, then celebrates, and only it plays two beats")
         suite.expect(Set(NotchMascotMoment.allCases.compactMap(\.reaction))
                         == Set(NotchMascotReaction.allCases).subtracting([.yawn]),
                      "every reaction but the yawn the preview plays when it is switched off has a moment to try")

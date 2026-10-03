@@ -372,9 +372,22 @@ private struct NotchMascotStageCard: View {
         } else {
             length = startVisit(.lap, greeting: .wink)
         }
-        let work = DispatchWorkItem { playing = nil }
+        guard let followUp = moment.followUp else {
+            let work = DispatchWorkItem { playing = nil }
+            playingWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + length, execute: work)
+            return
+        }
+        // The second beat, then the caption goes once it is over too.
+        let work = DispatchWorkItem {
+            guard playing == moment else { return }
+            react(followUp)
+            let done = DispatchWorkItem { playing = nil }
+            playingWork = done
+            DispatchQueue.main.asyncAfter(deadline: .now() + followUp.length + 0.15, execute: done)
+        }
         playingWork = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + length, execute: work)
+        DispatchQueue.main.asyncAfter(deadline: .now() + length + 0.2, execute: work)
     }
 
     private func react(_ reaction: NotchMascotReaction) {
