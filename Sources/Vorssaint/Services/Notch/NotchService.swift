@@ -3464,8 +3464,10 @@ final class NotchService: ObservableObject {
                              detail: remaining ? text.left(share) : text.usedShare(share),
                              symbol: "exclamationmark.triangle.fill", agent: provider))
         case .limitReset(let provider, let limit):
+            // Work can go on: the companion is glad of it.
             show(NotchNotice(event: .agents, title: "\(provider.displayName) · \(window(limit))",
-                             detail: text.limitRenewed, symbol: "arrow.clockwise", agent: provider))
+                             detail: text.limitRenewed, symbol: "arrow.clockwise", agent: provider, mascot: .celebrate))
+            reactMascot(.celebrate)
         case .budgetReached(let spent, _):
             show(NotchNotice(event: .agents, title: text.budgetTitle, detail: AgentFormat.cost(spent),
                              symbol: "dollarsign.circle.fill"))
