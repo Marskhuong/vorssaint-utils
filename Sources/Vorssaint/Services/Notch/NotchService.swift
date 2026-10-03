@@ -3877,6 +3877,9 @@ extension NotchService {
     /// the island refreshes, before that strip is drawn, at most once in a
     /// while.
     fileprivate func syncMascotAgents() {
+        // Agents already at work when the app opens are no news: their logs
+        // are read after the island first shows.
+        guard AgentUsageService.shared.snapshot.loaded else { return }
         let working = hasAgentActivity
         let saw = mascotSawAgents
         mascotSawAgents = working
