@@ -275,6 +275,8 @@ final class NotchMascotRig: NSObject {
 
     /// Whether a stroll is moving it, with eyes for the way ahead.
     var isVisiting: Bool { root.animation(forKey: "visit") != nil }
+    /// It grew sleepy on its own after a long rest.
+    var isDozing: Bool { dozed }
 
     /// Turns its eyes toward `target`, in shares of its size, on top of the
     /// face it keeps. With `hold`, they stay that long and come back, so
@@ -827,7 +829,7 @@ final class NotchMascotHostView: NSView {
 
     private func followIslandPointer() {
         guard followsPointer, !mascot.isVisiting, let window else { return }
-        mascot.wake(animated: true)
+        greetPointer()
         let point = convert(window.convertPoint(fromScreen: NSEvent.mouseLocation), from: nil)
         mascot.attend(to: NotchMascotSupport.pointerGaze(from: mascot.root.position, to: point, size: mascot.size))
     }
@@ -867,8 +869,13 @@ final class NotchMascotHostView: NSView {
 
     override func mouseEntered(with event: NSEvent) {
         guard followsPointer else { return }
-        mascot.wake(animated: true)
+        greetPointer()
         follow(event)
+    }
+
+    /// The pointer coming back wakes it, with a stretch from a doze.
+    private func greetPointer() {
+        if mascot.isDozing, !mascot.isVisiting { mascot.react(.wakeUp, lift: 0) } else { mascot.wake(animated: true) }
     }
 
     override func mouseMoved(with event: NSEvent) {
