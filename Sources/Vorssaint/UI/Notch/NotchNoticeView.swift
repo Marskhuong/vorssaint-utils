@@ -60,8 +60,8 @@ struct NotchNoticeView: View {
         } else {
             HStack(spacing: 8) {
                 Group {
-                    // A notice about the agent itself wears its mark; warnings
-                    // and renewals keep a symbol that says what happened.
+                    // A notice about the agent itself wears its mark, and a
+                    // warning keeps a symbol that says what happened.
                     if let reaction = companionReaction {
                         NotchMascotView(look: NotchMascotSupport.look(), mood: NotchService.shared.mascotRestingMood,
                                         size: 18, reaction: NotchMascotSupport.reacts() ? reaction : nil)

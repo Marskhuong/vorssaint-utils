@@ -335,7 +335,10 @@ private struct NotchMascotStageCard: View {
         .padding(16)
         .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
         .onChange(of: awake) { _, awake in
-            // Switched on, it wakes up with a stretch; off, it yawns and dozes off.
+            // A moment still playing ends; switched on, it wakes up with a
+            // stretch, and off, it yawns and dozes off.
+            playingWork?.cancel(); playingWork = nil
+            playing = nil
             react(awake ? .wakeUp : .yawn)
         }
         .onChange(of: side) { _, _ in
