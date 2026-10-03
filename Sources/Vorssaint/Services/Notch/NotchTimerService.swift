@@ -53,9 +53,12 @@ final class NotchTimerService: ObservableObject {
     }
 
     func cancel() {
+        // The finished timer hid the companion until now, and it comes back cheering.
+        let putAway = session.completed && !suspended
         alert.stop()
         completionTask?.cancel(); completionTask = nil
         session.cancel()
+        if putAway { NotchService.shared.reactMascot(.celebrate) }
     }
 
     func suspend() {
@@ -73,7 +76,6 @@ final class NotchTimerService: ObservableObject {
         NotchService.shared.show(NotchNotice(event: .timer,
             title: session.cycleFinished ? text.pomodoroFinished : text.finished,
             detail: text.phase(session.phase), symbol: "timer"))
-        NotchService.shared.reactMascot(.surprised)
         alert.start(enabled: NotchTimerSupport.isSoundEnabled())
     }
 

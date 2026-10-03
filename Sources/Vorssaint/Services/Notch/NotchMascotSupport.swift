@@ -114,12 +114,11 @@ enum NotchMascotVisitFrequency: String, CaseIterable, Identifiable {
 
 /// A short reaction to something the island saw happen.
 enum NotchMascotReaction: String, CaseIterable {
-    /// Something finished well: an agent's task, a download, a file dropped in.
+    /// Something finished well: an agent's task, a download, a file dropped
+    /// in, a finished timer put away.
     case celebrate
     /// Plugged in to charge, or petted.
     case love
-    /// A timer ran out.
-    case surprised
     /// A screenshot: a hard blink, as a camera's flash.
     case flash
     /// Something failed.

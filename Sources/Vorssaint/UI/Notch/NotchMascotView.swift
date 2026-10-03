@@ -423,7 +423,7 @@ final class NotchMascotRig: NSObject {
             switch reaction {
             case .celebrate, .wakeUp: flashFace(.happy, duration: 1)
             case .love: flashFace(.love, duration: 1.2)
-            case .surprised, .flash: flashFace(.surprised, duration: 0.8)
+            case .flash: flashFace(.surprised, duration: 0.8)
             case .confused: flashFace(.confused, duration: 1.1)
             case .yawn: flashFace(.sleepy, duration: 1.1)
             }
@@ -436,9 +436,6 @@ final class NotchMascotRig: NSObject {
         case .love:
             flashFace(.love, duration: 1.4)
             heartbeat(beginTime: now + 0.22)
-        case .surprised:
-            flashFace(.surprised, duration: 0.9)
-            hop(height: lift * 0.7)
         case .flash:
             // Squeezed shut, then wide open, as a camera's flash goes off.
             let blink = CAKeyframeAnimation(keyPath: "transform.scale.y")
