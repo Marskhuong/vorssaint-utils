@@ -114,7 +114,7 @@ extension FeatureStrings {
         switch language {
         case .enUS: return NotchMascotStrings(
             title: "Companion",
-            hint: "A little friend who lives in the island. It rests beside the camera when nothing else is there and steps aside for music, notices and activities.",
+            hint: "A little friend who lives in the island. It rests beside the camera when nothing else is there, and comes out over music and activities to visit and to react to what happens.",
             visits: "Appear now and then",
             visitsHint: "Every few minutes it passes through the island with a short animation.",
             style: "Style", minimal: "Minimal", robot: "Robot",
@@ -130,7 +130,7 @@ extension FeatureStrings {
             frequency: "How often", rare: "Rarely", normal: "Sometimes", frequent: "Often")
         case .ptBR: return NotchMascotStrings(
             title: "Companheiro",
-            hint: "Um amiguinho que mora na ilha. Descansa ao lado da câmera quando não há mais nada ali e sai do caminho para música, avisos e atividades.",
+            hint: "Um amiguinho que mora na ilha. Descansa ao lado da câmera quando não há mais nada ali e aparece por cima de músicas e atividades para fazer visitas e reagir ao que acontece.",
             visits: "Aparecer de vez em quando",
             visitsHint: "A cada poucos minutos ele passa pela ilha com uma animação curta.",
             style: "Estilo", minimal: "Minimalista", robot: "Robô",
@@ -146,7 +146,7 @@ extension FeatureStrings {
             frequency: "Frequência", rare: "Rara", normal: "Normal", frequent: "Frequente")
         case .es: return NotchMascotStrings(
             title: "Compañero",
-            hint: "Un amiguito que vive en la isla. Descansa junto a la cámara cuando no hay nada más y se aparta para la música, los avisos y las actividades.",
+            hint: "Un amiguito que vive en la isla. Descansa junto a la cámara cuando no hay nada más y aparece sobre la música y las actividades para hacer visitas y reaccionar a lo que pasa.",
             visits: "Aparecer de vez en cuando",
             visitsHint: "Cada pocos minutos pasa por la isla con una animación corta.",
             style: "Estilo", minimal: "Minimalista", robot: "Robot",
@@ -162,7 +162,7 @@ extension FeatureStrings {
             frequency: "Frecuencia", rare: "Rara", normal: "Normal", frequent: "Frecuente")
         case .sk: return NotchMascotStrings(
             title: "Spoločník",
-            hint: "Malý kamarát, ktorý býva na ostrove. Odpočíva vedľa kamery, keď tam nič iné nie je, a uhne hudbe, upozorneniam a aktivitám.",
+            hint: "Malý kamarát, ktorý býva na ostrove. Odpočíva vedľa kamery, keď tam nič iné nie je, a ponad hudbu a aktivity sa ukáže na návštevu alebo zareaguje na to, čo sa deje.",
             visits: "Občas sa ukázať",
             visitsHint: "Každých pár minút prejde ostrovom s krátkou animáciou.",
             style: "Štýl", minimal: "Minimalistický", robot: "Robot",
@@ -178,7 +178,7 @@ extension FeatureStrings {
             frequency: "Ako často", rare: "Zriedka", normal: "Občas", frequent: "Často")
         case .de: return NotchMascotStrings(
             title: "Begleiter",
-            hint: "Ein kleiner Freund, der in der Insel wohnt. Er ruht neben der Kamera, wenn dort nichts anderes ist, und macht Platz für Musik, Hinweise und Aktivitäten.",
+            hint: "Ein kleiner Freund, der in der Insel wohnt. Er ruht neben der Kamera, wenn dort nichts anderes ist, und kommt auch über Musik und Aktivitäten hervor, um vorbeizuschauen und auf das Geschehen zu reagieren.",
             visits: "Ab und zu vorbeischauen",
             visitsHint: "Alle paar Minuten läuft er mit einer kurzen Animation durch die Insel.",
             style: "Stil", minimal: "Minimal", robot: "Roboter",
@@ -194,7 +194,7 @@ extension FeatureStrings {
             frequency: "Wie oft", rare: "Selten", normal: "Manchmal", frequent: "Oft")
         case .fr: return NotchMascotStrings(
             title: "Compagnon",
-            hint: "Un petit ami qui vit dans l’île. Il se repose à côté de la caméra quand rien d’autre n’y est affiché et laisse la place à la musique, aux notifications et aux activités.",
+            hint: "Un petit ami qui vit dans l’île. Il se repose à côté de la caméra quand rien d’autre n’y est affiché, et apparaît par-dessus la musique et les activités pour passer et réagir à ce qui se passe.",
             visits: "Passer de temps en temps",
             visitsHint: "Toutes les quelques minutes, il traverse l’île avec une courte animation.",
             style: "Style", minimal: "Minimaliste", robot: "Robot",
@@ -210,7 +210,7 @@ extension FeatureStrings {
             frequency: "Fréquence", rare: "Rare", normal: "Normale", frequent: "Fréquente")
         case .it: return NotchMascotStrings(
             title: "Compagno",
-            hint: "Un piccolo amico che vive nell’isola. Riposa accanto alla fotocamera quando non c’è nient’altro e si fa da parte per musica, avvisi e attività.",
+            hint: "Un piccolo amico che vive nell’isola. Riposa accanto alla fotocamera quando non c’è nient’altro e compare sopra musica e attività per fare un saluto e reagire a ciò che succede.",
             visits: "Comparire ogni tanto",
             visitsHint: "Ogni pochi minuti attraversa l’isola con una breve animazione.",
             style: "Stile", minimal: "Minimale", robot: "Robot",
@@ -226,7 +226,7 @@ extension FeatureStrings {
             frequency: "Frequenza", rare: "Rara", normal: "Normale", frequent: "Frequente")
         case .ru: return NotchMascotStrings(
             title: "Компаньон",
-            hint: "Маленький друг, который живёт на острове. Он отдыхает рядом с камерой, когда там больше ничего нет, и уступает место музыке, уведомлениям и активностям.",
+            hint: "Маленький друг, который живёт на острове. Он отдыхает рядом с камерой, когда там больше ничего нет, а поверх музыки и активностей выглядывает, чтобы заглянуть в гости и отреагировать на происходящее.",
             visits: "Появляться время от времени",
             visitsHint: "Раз в несколько минут он пробегает по острову с короткой анимацией.",
             style: "Стиль", minimal: "Минимализм", robot: "Робот",
@@ -242,7 +242,7 @@ extension FeatureStrings {
             frequency: "Как часто", rare: "Редко", normal: "Иногда", frequent: "Часто")
         case .tr: return NotchMascotStrings(
             title: "Arkadaş",
-            hint: "Adada yaşayan küçük bir dost. Orada başka bir şey olmadığında kameranın yanında dinlenir, müzik, bildirimler ve etkinlikler için kenara çekilir.",
+            hint: "Adada yaşayan küçük bir dost. Orada başka bir şey olmadığında kameranın yanında dinlenir, müzik ve etkinliklerin üzerinde de ziyarete gelir ve olanlara tepki verir.",
             visits: "Arada bir görün",
             visitsHint: "Birkaç dakikada bir kısa bir animasyonla adadan geçer.",
             style: "Stil", minimal: "Sade", robot: "Robot",
@@ -258,7 +258,7 @@ extension FeatureStrings {
             frequency: "Sıklık", rare: "Seyrek", normal: "Normal", frequent: "Sık")
         case .ja: return NotchMascotStrings(
             title: "コンパニオン",
-            hint: "アイランドに住む小さな友だちです。ほかに何も表示されていないときはカメラの横で休み、音楽や通知、アクティビティにはその場所をゆずります。",
+            hint: "アイランドに住む小さな友だちです。ほかに何も表示されていないときはカメラの横で休み、音楽やアクティビティの上にも顔を出して、遊びに来たり出来事に反応したりします。",
             visits: "ときどき現れる",
             visitsHint: "数分ごとに、短いアニメーションでアイランドを通り抜けます。",
             style: "スタイル", minimal: "ミニマル", robot: "ロボット",
@@ -274,7 +274,7 @@ extension FeatureStrings {
             frequency: "頻度", rare: "少なめ", normal: "ふつう", frequent: "多め")
         case .ko: return NotchMascotStrings(
             title: "컴패니언",
-            hint: "아일랜드에 사는 작은 친구입니다. 다른 것이 없을 때는 카메라 옆에서 쉬고, 음악, 알림, 활동에는 자리를 비켜 줍니다.",
+            hint: "아일랜드에 사는 작은 친구입니다. 다른 것이 없을 때는 카메라 옆에서 쉬고, 음악이나 활동 위로도 나타나 놀러 오거나 일어난 일에 반응합니다.",
             visits: "가끔 나타나기",
             visitsHint: "몇 분마다 짧은 애니메이션으로 아일랜드를 지나갑니다.",
             style: "스타일", minimal: "미니멀", robot: "로봇",
@@ -290,7 +290,7 @@ extension FeatureStrings {
             frequency: "빈도", rare: "가끔", normal: "보통", frequent: "자주")
         case .zhHans: return NotchMascotStrings(
             title: "小伙伴",
-            hint: "住在岛里的小朋友。岛上没有其他内容时，它会在摄像头旁休息，并为音乐、通知和活动让出位置。",
+            hint: "住在岛里的小朋友。岛上没有其他内容时，它会在摄像头旁休息，有音乐或活动时也会出来串门，对发生的事做出反应。",
             visits: "偶尔出现",
             visitsHint: "每隔几分钟，它会以简短的动画从岛上经过。",
             style: "风格", minimal: "极简", robot: "机器人",
@@ -306,7 +306,7 @@ extension FeatureStrings {
             frequency: "频率", rare: "偶尔", normal: "适中", frequent: "经常")
         case .zhTW: return NotchMascotStrings(
             title: "小夥伴",
-            hint: "住在動態島裡的小朋友。島上沒有其他內容時，它會在相機旁休息，並為音樂、通知和活動讓出位置。",
+            hint: "住在動態島裡的小朋友。島上沒有其他內容時，它會在相機旁休息，有音樂或活動時也會出來串門子，對發生的事做出反應。",
             visits: "偶爾出現",
             visitsHint: "每隔幾分鐘，它會以簡短的動畫從動態島經過。",
             style: "風格", minimal: "極簡", robot: "機器人",
@@ -322,7 +322,7 @@ extension FeatureStrings {
             frequency: "頻率", rare: "偶爾", normal: "適中", frequent: "經常")
         case .zhHK: return NotchMascotStrings(
             title: "小夥伴",
-            hint: "住在動態島裡的小朋友。島上沒有其他內容時，它會在相機旁休息，並為音樂、通知和活動讓出位置。",
+            hint: "住在動態島裡的小朋友。島上沒有其他內容時，它會在相機旁休息，有音樂或活動時也會出來串門子，對發生的事做出反應。",
             visits: "間中出現",
             visitsHint: "每隔幾分鐘，它會以簡短的動畫從動態島經過。",
             style: "風格", minimal: "極簡", robot: "機械人",
@@ -338,7 +338,7 @@ extension FeatureStrings {
             frequency: "頻率", rare: "偶爾", normal: "適中", frequent: "經常")
         case .uk: return NotchMascotStrings(
             title: "Компаньйон",
-            hint: "Маленький друг, який живе в острівці. Він відпочиває біля камери, коли там більше нічого немає, і поступається місцем музиці, сповіщенням і активностям.",
+            hint: "Маленький друг, який живе в острівці. Він відпочиває біля камери, коли там більше нічого немає, а поверх музики й активностей визирає, щоб завітати в гості й відреагувати на те, що відбувається.",
             visits: "З’являтися час від часу",
             visitsHint: "Раз на кілька хвилин він пробігає острівцем із короткою анімацією.",
             style: "Стиль", minimal: "Мінімалізм", robot: "Робот",

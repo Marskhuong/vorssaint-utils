@@ -14,6 +14,8 @@ enum NotchMascotTests {
         trackContracts(suite)
         strollContracts(suite)
         homecomingContracts(suite)
+        cameoContracts(suite)
+        activityTrackContracts(suite)
         reactionContracts(suite)
         sideContracts(suite)
         commandBarContracts(suite)
@@ -274,6 +276,80 @@ enum NotchMascotTests {
         }
     }
 
+    private static func cameoContracts(_ suite: TestSuite) {
+        let left = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                            floats: false, bodyHeight: 32)
+        let right = NotchMascotSupport.track(stripWidth: 268, stripHeight: 32, wing: 44, cameraWidth: 180,
+                                             floats: false, bodyHeight: 32, side: .right)
+        let capsule = NotchMascotSupport.track(stripWidth: 76, stripHeight: 24, wing: 0, cameraWidth: 0,
+                                               floats: true, bodyHeight: 20)
+        suite.expect(NotchMascotVisit.Kind.pass.endsOutOfSight && NotchMascotVisit.Kind.cameo(.love).endsOutOfSight
+                     && !NotchMascotVisit.Kind.lap.endsOutOfSight && !NotchMascotVisit.Kind.home.endsOutOfSight,
+                     "only a pass and a cameo end out of sight, so only they cross an activity's strip")
+        for reaction in NotchMascotReaction.allCases {
+            let kind = NotchMascotVisit.Kind.cameo(reaction)
+            suite.expect(NotchMascotMotion.cameoHold(reaction) > reaction.length
+                         && NotchMascotMotion.duration(of: kind) <= 3,
+                         "coming out for \(reaction.rawValue), it stays for all of it and is soon gone")
+            for (name, track) in [("left wing", left), ("right wing", right), ("capsule", capsule)] {
+                let path = NotchMascotMotion.path(for: kind, on: track)
+                let counts = Set([path.keyTimes.count, path.x.count, path.lift.count, path.squash.count, path.gaze.count])
+                suite.expect(counts.count == 1 && path.keyTimes.first == 0 && path.keyTimes.last == 1
+                             && zip(path.keyTimes, path.keyTimes.dropFirst()).allSatisfy { $0 <= $1 }
+                             && path.duration == NotchMascotMotion.duration(of: kind)
+                             && path.greeting.upperBound == path.greeting.lowerBound,
+                             "out for \(reaction.rawValue) in a \(name), it is one even run of frames with no hello of its own")
+                let landed = path.keyTimes.indices.filter {
+                    let time = path.keyTimes[$0] * path.duration
+                    return time >= NotchMascotMotion.cameoArrival
+                        && time <= NotchMascotMotion.cameoArrival + reaction.length
+                }
+                suite.expect(!landed.isEmpty && landed.allSatisfy { abs(path.x[$0] - track.rest) < 0.01 && path.lift[$0] == 0 },
+                             "in a \(name) it plays its \(reaction.rawValue) standing where it would rest")
+                suite.expect(path.lift.allSatisfy { track.baseline - $0 - track.size / 2 >= track.ceiling + 1 },
+                             "out for \(reaction.rawValue) in a \(name), it never hops into the island's top edge")
+                if let hidden = track.hidden {
+                    func behind(_ x: CGFloat) -> Bool {
+                        x - track.size / 2 >= hidden.lowerBound && x + track.size / 2 <= hidden.upperBound
+                    }
+                    let start = path.x.first ?? 0
+                    suite.expect(behind(start) && behind(path.x.last ?? 0)
+                                 && path.x.allSatisfy { $0 >= min(start, track.rest) - 0.01 && $0 <= max(start, track.rest) + 0.01 },
+                                 "in a \(name) it comes from behind the camera, goes no further than its place and goes back")
+                } else {
+                    suite.expect((path.x.first ?? 0) <= -track.size / 2 && (path.x.last ?? 0) >= track.width + track.size / 2,
+                                 "in a capsule it comes in at one end for \(reaction.rawValue) and leaves at the other")
+                }
+            }
+        }
+    }
+
+    private static func activityTrackContracts(_ suite: TestSuite) {
+        let roomy = NotchGeometry(screen: CGRect(x: 0, y: 0, width: 1512, height: 982), safeAreaTop: 32,
+                                  cameraWidth: 185, layout: .spacious, compactSideRoom: 300)
+        let agents = roomy.compactAgentGeometry(wing: 57.2)
+        let wing = agents.compactActivityWingWidth
+        let left = NotchMascotSupport.track(overActivity: agents, size: agents.compactActivitySize)
+        let right = NotchMascotSupport.track(overActivity: agents, size: agents.compactActivitySize, side: .right)
+        suite.expect(left.map {
+            $0.width == agents.compactActivitySize.width && $0.hidden == wing...(wing + 185)
+                && $0.rest - $0.size / 2 >= 4 && $0.rest + $0.size / 2 <= wing - 4
+        } == true, "over an activity's strip it comes out whole in the wing on its side of the camera")
+        suite.expect(right.map { $0.mirrored && abs($0.rest - ($0.width - (left?.rest ?? 0))) < 0.01 } == true,
+                     "on the right it comes out in the right wing")
+        var crowded = roomy
+        crowded.compactSideRoom = 30
+        let cutout = crowded.compactAgentGeometry(wing: 57)
+        suite.expect(NotchMascotSupport.track(overActivity: cutout, size: cutout.compactActivitySize) == nil,
+                     "a strip that keeps to the cutout has no wing for it, so it stays behind the camera")
+        let capsule = NotchGeometry(screen: CGRect(x: 0, y: 0, width: 1920, height: 1080), safeAreaTop: 0,
+                                    cameraWidth: 0, silhouette: .capsule)
+        let through = NotchMascotSupport.track(overActivity: capsule,
+                                               size: CGSize(width: 140, height: capsule.stripHeight))
+        suite.expect(capsule.floats && through?.hidden == nil && through?.rest == 70 && through?.mirrored == false,
+                     "over a capsule's activity it comes out in the middle")
+    }
+
     private static func reactionContracts(_ suite: TestSuite) {
         var gate = NotchMascotReactionGate()
         suite.expect(gate.admits(.celebrate, at: 100), "the first reaction plays")
@@ -304,7 +380,7 @@ enum NotchMascotTests {
         let capsule = NotchMascotSupport.track(stripWidth: 76, stripHeight: 24, wing: 0, cameraWidth: 0,
                                                floats: true, bodyHeight: 20, side: .right)
         suite.expect(!capsule.mirrored && capsule.rest == 38, "a capsule keeps it in the middle on either side")
-        for kind in [NotchMascotVisit.Kind.lap, .pass, .home] {
+        for kind in [NotchMascotVisit.Kind.lap, .pass, .home, .cameo(.love)] {
             let plain = NotchMascotMotion.path(for: kind, on: left)
             let mirrored = NotchMascotMotion.path(for: kind, on: right)
             suite.expect(mirrored.keyTimes == plain.keyTimes && mirrored.lift == plain.lift

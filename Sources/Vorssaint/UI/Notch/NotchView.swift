@@ -172,7 +172,10 @@ struct NotchView: View {
                 // Hover grows the capsule around its strip, as it grows the
                 // notch around its wings. Drawn at the grown size, a song's
                 // cover and bars jumped out at once while the shape still grew.
-                activityStrip(activity, size: service.compactStripSize(for: activity, companion: service.compactCompanion))
+                let strip = service.compactStripSize(for: activity, companion: service.compactCompanion)
+                activityStrip(activity, size: strip)
+                    .modifier(NotchMascotActivityVisit(service: service,
+                                                       track: service.mascotTrack(overActivityStrip: strip)))
             }
         } else if let departingMusic = service.departingMusic ?? service.lingeringMusic {
             Group {
@@ -629,7 +632,7 @@ struct NotchRestingStrip: View {
     }
 
     /// A visit walks over what the island rests with, which steps aside meanwhile.
-    private var contentStepsAside: Bool { service.mascotVisit != nil && !service.mascotAtRest }
+    private var contentStepsAside: Bool { service.mascotStepsAside && !service.mascotAtRest }
 
     var body: some View {
         ZStack {

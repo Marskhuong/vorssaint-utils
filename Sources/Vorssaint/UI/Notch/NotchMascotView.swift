@@ -423,7 +423,7 @@ final class NotchMascotRig: NSObject {
             switch reaction {
             case .celebrate, .wakeUp: flashFace(.happy, duration: 1)
             case .love: flashFace(.love, duration: 1.2)
-            case .flash: flashFace(.surprised, duration: 0.8)
+            case .surprised, .flash: flashFace(.surprised, duration: 0.8)
             case .confused: flashFace(.confused, duration: 1.1)
             case .yawn: flashFace(.sleepy, duration: 1.1)
             }
@@ -436,6 +436,9 @@ final class NotchMascotRig: NSObject {
         case .love:
             flashFace(.love, duration: 1.4)
             heartbeat(beginTime: now + 0.22)
+        case .surprised:
+            flashFace(.surprised, duration: 0.9)
+            hop(height: lift * 0.7)
         case .flash:
             // Squeezed shut, then wide open, as a camera's flash goes off.
             let blink = CAKeyframeAnimation(keyPath: "transform.scale.y")
@@ -660,6 +663,8 @@ final class NotchMascotHostView: NSView {
     /// The pointer resting on it for a moment is a pat on the head.
     private var pettingWork: DispatchWorkItem?
     private var lastPetting: CFTimeInterval = 0
+    /// A cameo's reaction, waiting for it to land.
+    private var cameoWork: DispatchWorkItem?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -679,6 +684,7 @@ final class NotchMascotHostView: NSView {
     deinit {
         if let visibilityObserver { NotificationCenter.default.removeObserver(visibilityObserver) }
         if let dragObserver { NotificationCenter.default.removeObserver(dragObserver) }
+        cameoWork?.cancel()
     }
 
     /// In the island's drop hint, its eyes follow a file dragged anywhere on screen.
@@ -860,12 +866,26 @@ final class NotchMascotHostView: NSView {
         mascot.play(cue)
     }
 
+    /// Plays `visit` once. A cameo's reaction plays as it lands, `lift`
+    /// being how high a hop may take it there.
     func playVisit(_ visit: NotchMascotVisit?, path: @autoclosure () -> NotchMascotPath, baseline: CGFloat,
-                   stand: CGPoint) {
+                   stand: CGPoint, lift: CGFloat) {
         guard let visit, visit.id != playedVisit else { return }
         playedVisit = visit.id
+        cameoWork?.cancel(); cameoWork = nil
         mascot.wake(animated: false)
         mascot.playVisit(path(), greeting: visit.greeting, baseline: baseline, stand: stand, start: visit.start)
+        guard case .cameo(let reaction) = visit.kind else { return }
+        // A strip drawn again after it landed picks the visit up there, and
+        // does not play the reaction late.
+        let wait = visit.start + NotchMascotMotion.cameoArrival - CACurrentMediaTime()
+        guard wait > -0.2 else { return }
+        let work = DispatchWorkItem { [weak self] in
+            self?.cameoWork = nil
+            self?.mascot.react(reaction, lift: lift)
+        }
+        cameoWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(0, wait), execute: work)
     }
 }
 
@@ -934,11 +954,39 @@ struct NotchMascotTrackView: NSViewRepresentable {
         view.place(at: CGPoint(x: x, y: track.baseline), visible: visible)
         view.followsPointer = rests
         view.playVisit(visit, path: NotchMascotMotion.path(for: visit?.kind ?? .pass, on: track),
-                       baseline: track.baseline, stand: CGPoint(x: track.rest, y: track.baseline))
+                       baseline: track.baseline, stand: CGPoint(x: track.rest, y: track.baseline),
+                       lift: track.hop(0.22))
         if rests { view.react(reaction, lift: track.hop(0.22)) }
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: NotchMascotHostView, context: Context) -> CGSize? {
         CGSize(width: track.width, height: track.height)
+    }
+}
+
+/// The companion over an activity's closed strip, which steps aside while
+/// it visits or comes out to react. `track` is nil when the strip has no
+/// room for it.
+struct NotchMascotActivityVisit: ViewModifier {
+    @ObservedObject var service: NotchService
+    let track: NotchMascotTrack?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        // A lap or a homecoming ends where it rests, which an activity's
+        // strip has no place for, so only what ends out of sight comes over it.
+        let visit = track == nil ? nil : service.mascotVisit.flatMap { $0.kind.endsOutOfSight ? $0 : nil }
+        let stepsAside = visit != nil && service.mascotStepsAside
+        content
+            .opacity(stepsAside ? 0 : 1)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: stepsAside)
+            .overlay(alignment: .top) {
+                if let track, let visit {
+                    NotchMascotTrackView(look: NotchMascotSupport.look(), track: track, rests: false, visit: visit,
+                                         mood: service.mascotRestingMood)
+                        .frame(width: track.width, height: track.height)
+                        .allowsHitTesting(false)
+                }
+            }
     }
 }

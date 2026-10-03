@@ -114,11 +114,12 @@ enum NotchMascotVisitFrequency: String, CaseIterable, Identifiable {
 
 /// A short reaction to something the island saw happen.
 enum NotchMascotReaction: String, CaseIterable {
-    /// Something finished well: an agent's task, a download, a file dropped
-    /// in, a finished timer put away.
+    /// Something finished well: an agent's task, a download, a file dropped in.
     case celebrate
     /// Plugged in to charge, or petted.
     case love
+    /// A timer ran out.
+    case surprised
     /// A screenshot: a hard blink, as a camera's flash.
     case flash
     /// Something failed.
@@ -127,6 +128,20 @@ enum NotchMascotReaction: String, CaseIterable {
     case wakeUp
     /// Keep Awake let go: a yawn.
     case yawn
+
+    /// About how long it plays, so the companion stays out for all of it
+    /// when it comes out over an activity to play it.
+    var length: TimeInterval {
+        switch self {
+        case .celebrate: return 1.0
+        case .love: return 1.4
+        case .surprised: return 0.9
+        case .flash: return 0.5
+        case .confused: return 1.2
+        case .wakeUp: return 1.6
+        case .yawn: return 1.2
+        }
+    }
 }
 
 /// One reaction, as the island publishes it for the companion to play.
@@ -569,10 +584,22 @@ struct NotchMascotVisit: Equatable {
     enum Kind: Equatable {
         /// From its resting place, around the island and back.
         case lap
-        /// In at one end and out at the other, over what the island shows at rest.
+        /// In at one end and out at the other, over what the island shows.
         case pass
         /// Back from the Command Bar's drop: out from behind the camera to its place.
         case home
+        /// Out from behind the camera over what the island shows, to play
+        /// a reaction where it would rest, and back behind the camera.
+        case cameo(NotchMascotReaction)
+
+        /// It ends out of sight, past the strip's end or behind the camera,
+        /// so it can cross an activity's strip and leave nothing behind.
+        var endsOutOfSight: Bool {
+            switch self {
+            case .pass, .cameo: return true
+            case .lap, .home: return false
+            }
+        }
     }
 
     let id: UUID
@@ -637,14 +664,23 @@ enum NotchMascotMotion {
     static let lapDuration: TimeInterval = 3.6
     static let passDuration: TimeInterval = 3.4
     static let homeDuration: TimeInterval = 0.62
+    /// A cameo lands where it would rest this long after it starts, and its
+    /// reaction plays from there.
+    static let cameoArrival: TimeInterval = 0.5
+    /// It is back behind the camera as its exit ends, so the visit ends there.
+    static let cameoExit: TimeInterval = 0.32
 
     static func duration(of kind: NotchMascotVisit.Kind) -> TimeInterval {
         switch kind {
         case .lap: return lapDuration
         case .pass: return passDuration
         case .home: return homeDuration
+        case .cameo(let reaction): return cameoArrival + cameoHold(reaction) + cameoExit
         }
     }
+
+    /// How long a cameo stays where it landed: its reaction and a beat after it.
+    static func cameoHold(_ reaction: NotchMascotReaction) -> TimeInterval { reaction.length + 0.3 }
 
     /// A stroll of `kind`. Resting right of the camera, it walks the left
     /// side's stroll seen in a mirror.
@@ -654,6 +690,7 @@ enum NotchMascotMotion {
             case .lap: return lap(on: track)
             case .pass: return pass(on: track)
             case .home: return home(on: track)
+            case .cameo(let reaction): return cameo(on: track, hold: cameoHold(reaction))
             }
         }
         var left = track
@@ -730,6 +767,24 @@ enum NotchMascotMotion {
                           start: hidden.lowerBound + size / 2 + 2, track: track, duration: homeDuration)
         path.greeting = 0...0.44
         return path
+    }
+
+    /// Out from behind the camera to where it would rest, `hold` there for
+    /// its reaction, and back behind the camera. A capsule has no camera, so
+    /// it comes in at the near end and leaves at the far one.
+    static func cameo(on track: NotchMascotTrack, hold: TimeInterval) -> NotchMascotPath {
+        let size = track.size
+        let duration = cameoArrival + hold + cameoExit
+        guard let hidden = track.hidden else {
+            return sample([.stay(0.06), .hop(to: track.rest, cameoArrival - 0.06, height: track.hop(0.3)), .stay(hold),
+                           .walk(to: track.width + size, cameoExit)],
+                          start: -size, track: track, duration: duration)
+        }
+        // Just out of sight, so it shows the moment it moves and is gone as it lands.
+        let behind = hidden.lowerBound + size / 2 + 1
+        return sample([.stay(0.06), .hop(to: track.rest, cameoArrival - 0.06, height: track.hop(0.2)), .stay(hold),
+                       .hop(to: behind, cameoExit, height: track.hop(0.16))],
+                      start: behind, track: track, duration: duration)
     }
 
     private static func sample(_ steps: [Step], start: CGFloat, track: NotchMascotTrack,
@@ -921,5 +976,27 @@ enum NotchMascotSupport {
                                 rest: side == .right ? stripWidth - rest : rest,
                                 hidden: wing...(wing + cameraWidth), baseline: stripHeight / 2 + 0.5,
                                 mirrored: side == .right)
+    }
+
+    /// Room a wing keeps beyond the companion for it to come out in, so it
+    /// stays clear of the strip's rounded end.
+    static let wingRoom: CGFloat = 10
+
+    /// Where it comes out over an activity's closed strip of `size`, drawn
+    /// with `strip`: through a capsule, or in the wing on its side of the
+    /// camera. Nil when that wing has no room for it, as when the menus
+    /// leave none and the activity hangs below the camera instead.
+    static func track(overActivity strip: NotchGeometry, size: CGSize,
+                      side: NotchMascotSide = .left) -> NotchMascotTrack? {
+        if strip.floats {
+            return track(stripWidth: size.width, stripHeight: strip.stripHeight, wing: 0, cameraWidth: 0,
+                         floats: true, bodyHeight: strip.stripBodyHeight)
+        }
+        guard !strip.compactActivityUsesFooter else { return nil }
+        let wing = strip.compactActivityWingWidth
+        guard wing >= self.size(stripHeight: strip.stripHeight, floats: false) + wingRoom else { return nil }
+        return track(stripWidth: strip.compactActivitySize.width, stripHeight: strip.stripHeight, wing: wing,
+                     cameraWidth: strip.compactActivityCameraGap, floats: false, bodyHeight: strip.stripBodyHeight,
+                     side: side)
     }
 }

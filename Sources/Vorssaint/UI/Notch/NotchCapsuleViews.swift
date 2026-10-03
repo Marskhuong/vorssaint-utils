@@ -170,7 +170,7 @@ struct NotchCapsuleRestingView: View {
     private var geometry: NotchGeometry { displayGeometry ?? service.geometry }
 
     /// A visit walks over what the capsule rests with, which steps aside meanwhile.
-    private var contentStepsAside: Bool { service.mascotVisit != nil && !service.mascotAtRest }
+    private var contentStepsAside: Bool { service.mascotStepsAside && !service.mascotAtRest }
 
     var body: some View {
         resting
