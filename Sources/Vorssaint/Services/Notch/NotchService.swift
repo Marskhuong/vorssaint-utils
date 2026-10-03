@@ -239,6 +239,9 @@ final class NotchService: ObservableObject {
     private var mascotReactionGate = NotchMascotReactionGate()
     /// When music last brought it out, on the media clock.
     private var lastMascotGroove: CFTimeInterval = -.infinity
+    /// Whether Keep Awake held the Mac up when the companion last looked,
+    /// nil before it first did.
+    private var mascotSawKeepAwake: Bool?
     /// The companion is out in the Command Bar's drop, and the island rests without it.
     @Published private(set) var mascotInBar = false
     /// The closed island showed the companion at rest as of the last refresh.
@@ -2246,6 +2249,7 @@ final class NotchService: ObservableObject {
     }
 
     func refreshPresentation(animated: Bool = true, transitionContent: NotchContentTransition = .none) {
+        syncMascotKeepAwake()
         activitySelection.reconcile(available: compactActivities)
         if fullscreenCompact {
             finishMusicDeparture()
@@ -3367,15 +3371,10 @@ final class NotchService: ObservableObject {
                 }.store(in: &subscriptions)
         }
         // The companion is wide awake while Keep Awake holds the Mac up, and
-        // yawns as it lets go. The value it starts with is no news. Bound
-        // ahead of the activity's strip, so a reaction where it rests is set
-        // up before the strip that takes its place is drawn.
+        // yawns as it lets go.
         KeepAwakeManager.shared.$isActive.removeDuplicates().dropFirst().receive(on: DispatchQueue.main)
-            .sink { [weak self] active in
-                guard let self, NotchMascotSupport.isEnabled() else { return }
-                self.objectWillChange.send()
-                self.reactMascot(active ? .perk : .yawn)
-            }.store(in: &subscriptions)
+            .sink { [weak self] _ in self?.syncMascotKeepAwake() }
+            .store(in: &subscriptions)
         if NotchKeepAwakeSupport.showsActivity() {
             // A session starting or ending, or its end moving, which can
             // change the reading and the wings it needs.
@@ -3606,8 +3605,12 @@ extension NotchService {
         defer { mascotVisitsWereOn = visits }
         guard visits else {
             nextMascotVisitWork?.cancel(); nextMascotVisitWork = nil
-            // A farewell under way still gets to leave.
-            if let visit = mascotVisit, visit.kind != .farewell { endMascotVisit() }
+            // Visits turned off only stop coming: what plays now, a stroll, a
+            // reaction or an entrance, plays out. Switched off, it leaves
+            // with its farewell alone, and a stopped island ends everything.
+            if let visit = mascotVisit, visit.kind != .farewell, !running || !NotchMascotSupport.isEnabled() {
+                endMascotVisit()
+            }
             return
         }
         // Turned on just now: it says hello almost at once. Coming out from
@@ -3848,6 +3851,21 @@ extension NotchService {
         DispatchQueue.main.asyncAfter(deadline: .now() + cross.duration + 0.1, execute: work)
     }
 
+    /// Keep Awake starting or ending. Checked as the island refreshes too: a
+    /// timed session sets its end first, and the refresh for that can draw
+    /// the session's strip before word of the session itself arrives, too
+    /// late for the companion to stay and react where it rested.
+    fileprivate func syncMascotKeepAwake() {
+        let active = KeepAwakeManager.shared.isActive
+        let saw = mascotSawKeepAwake
+        // Noted first: the reaction refreshes the island, which looks again.
+        mascotSawKeepAwake = active
+        // The value it starts with is no news.
+        guard let saw, saw != active, NotchMascotSupport.isEnabled() else { return }
+        objectWillChange.send()
+        reactMascot(active ? .perk : .yawn)
+    }
+
     /// Music started: once the song's strip has settled, the companion comes
     /// out to bob along, if the music still plays, at most once in a while.
     fileprivate func mascotHearsMusic() {
@@ -3960,17 +3978,15 @@ extension NotchService {
         mascotVisit = visit
         mascotStepsAside = visit != nil
         refreshPresentation()
-        // Halfway home a cameo hands the strip back: beside a camera it is on
-        // its way behind it, and in a capsule past what the capsule shows.
-        guard let visit, let reaction = visit.kind.reaction else { return }
+        // A cameo hands the strip back on its way home, timed from the
+        // visit's own start, which its drawing follows.
+        guard let visit, let handBack = NotchMascotMotion.handBack(of: visit.kind, floats: geometry.floats) else { return }
         let work = DispatchWorkItem { [weak self] in
             self?.mascotStepBackWork = nil
             self?.mascotStepsAside = false
         }
         mascotStepBackWork = work
-        let arrival = visit.kind == .linger(reaction) ? 0 : NotchMascotMotion.cameoArrival
-        DispatchQueue.main.asyncAfter(deadline: .now() + arrival
-                                      + NotchMascotMotion.cameoHold(reaction) + NotchMascotMotion.cameoExit / 2,
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(0, visit.start + handBack - CACurrentMediaTime()),
                                       execute: work)
     }
 

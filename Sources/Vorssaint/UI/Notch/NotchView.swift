@@ -223,14 +223,18 @@ struct NotchView: View {
             case .keepAwake: NotchCapsuleKeepAwakeStrip(service: service, size: size)
             }
         } else {
+            // Handed down, the wings stay as they were drawn while a strip
+            // whose activity just ended leaves, instead of following the
+            // service to an island with no activity, where they are empty.
+            let geometry = service.compactActivityGeometry
             switch activity {
-            case .timer: NotchTimerStrip(service: service)
-            case .watch: NotchWatchStrip(service: service)
-            case .downloads: NotchDownloadStrip(service: service)
-            case .agents: NotchAgentStrip(service: service)
-            case .calendar: NotchCalendarStrip(service: service)
-            case .music: NotchMusicStrip(service: service)
-            case .keepAwake: NotchKeepAwakeStrip(service: service)
+            case .timer: NotchTimerStrip(service: service, displayGeometry: geometry)
+            case .watch: NotchWatchStrip(service: service, displayGeometry: geometry)
+            case .downloads: NotchDownloadStrip(service: service, displayGeometry: geometry)
+            case .agents: NotchAgentStrip(service: service, displayGeometry: geometry)
+            case .calendar: NotchCalendarStrip(service: service, displayGeometry: geometry)
+            case .music: NotchMusicStrip(service: service, displayGeometry: geometry)
+            case .keepAwake: NotchKeepAwakeStrip(service: service, displayGeometry: geometry)
             }
         }
     }

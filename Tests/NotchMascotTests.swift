@@ -364,6 +364,24 @@ enum NotchMascotTests {
                 suite.expect((path.x.last ?? 0) >= track.width + track.size / 2, "lingering in a capsule, it leaves at the far end")
             }
         }
+        // What a reaction covered comes back as it sets off home beside a
+        // camera, which hides it before it is halfway there, and halfway out
+        // of a capsule, which it walks out of past the end.
+        for kind in [NotchMascotVisit.Kind.cameo(.love), .linger(.perk), .cameo(.groove), .linger(.groove)] {
+            let duration = NotchMascotMotion.duration(of: kind)
+            let camera = NotchMascotMotion.handBack(of: kind, floats: false) ?? 0
+            let capsule = NotchMascotMotion.handBack(of: kind, floats: true) ?? 0
+            suite.expect(abs(camera - (duration - NotchMascotMotion.cameoExit)) < 1e-9
+                         && abs(capsule - (duration - NotchMascotMotion.cameoExit / 2)) < 1e-9,
+                         "\(kind) hands back what it covered as it sets off home beside a camera, halfway in a capsule")
+            let path = NotchMascotMotion.path(for: kind, on: right)
+            let before = path.keyTimes.indices.filter { path.keyTimes[$0] * path.duration <= camera - 0.01 }
+            suite.expect(!before.isEmpty && abs(path.x[before.last!] - right.rest) < 0.01,
+                         "\(kind) still stands where it reacted when the strip starts back")
+        }
+        suite.expect(NotchMascotMotion.handBack(of: .lap, floats: false) == nil
+                     && NotchMascotMotion.handBack(of: .countdown(5), floats: false) == nil,
+                     "a visit that comes out for no reaction hands nothing back on its own")
     }
 
     private static func arriveContracts(_ suite: TestSuite) {

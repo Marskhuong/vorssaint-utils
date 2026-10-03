@@ -402,17 +402,22 @@ struct NotchCapsuleAgentStrip: View {
     @AppStorage(DefaultsKey.notchAgentsLimitDisplay) private var display = NotchAgentLimitDisplay.remaining.rawValue
     @AppStorage(DefaultsKey.notchAgentsLimitFocus) private var focus = NotchAgentLimitFocus.mostUsed.rawValue
 
-    private var working: [AgentProvider] {
-        AgentProvider.allCases.filter { provider in usage.snapshot.live.contains { $0.provider == provider } }
+    private func working(_ live: [AgentLiveSession]) -> [AgentProvider] {
+        AgentProvider.allCases.filter { provider in live.contains { $0.provider == provider } }
     }
 
     var body: some View {
-        let working = working
+        // The last agent stopping empties the list before the strip has left.
+        NotchStripHold(usage.snapshot.live, shows: !usage.snapshot.live.isEmpty) { row(live: $0) }
+    }
+
+    @ViewBuilder private func row(live: [AgentLiveSession]) -> some View {
+        let working = working(live)
         NotchCapsuleRow(size: size, geometry: displayGeometry ?? service.geometry) {
             HStack(spacing: CapsuleLayout.spacing) {
                 NotchCapsuleAgentMarks(providers: working)
                 NotchAgentReadoutTimeline(readout: NotchAgentReadout(rawValue: readout) ?? .elapsed) { date in
-                    let text = reading(at: date)
+                    let text = reading(at: date, live: live)
                     Text(text)
                         .font(Font(CapsuleLayout.readingFont as CTFont))
                         .foregroundStyle(working.first?.tint ?? .white)
@@ -427,14 +432,16 @@ struct NotchCapsuleAgentStrip: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(working.map(\.displayName).joined(separator: ", "))
-        .accessibilityValue(reading(at: Date()))
+        .accessibilityValue(reading(at: Date(), live: live))
         .accessibilityHint(FeatureStrings.notch(l10n.language).open)
     }
 
-    private func reading(at now: Date) -> String {
-        NotchAgentSupport.stripReading(usage.snapshot, readout: NotchAgentReadout(rawValue: readout) ?? .elapsed,
-                                       display: NotchAgentLimitDisplay(rawValue: display) ?? .remaining,
-                                       focus: NotchAgentLimitFocus(rawValue: focus) ?? .mostUsed, now: now)
+    private func reading(at now: Date, live: [AgentLiveSession]) -> String {
+        var snapshot = usage.snapshot
+        snapshot.live = live
+        return NotchAgentSupport.stripReading(snapshot, readout: NotchAgentReadout(rawValue: readout) ?? .elapsed,
+                                              display: NotchAgentLimitDisplay(rawValue: display) ?? .remaining,
+                                              focus: NotchAgentLimitFocus(rawValue: focus) ?? .mostUsed, now: now)
     }
 }
 
@@ -526,7 +533,13 @@ struct NotchCapsuleCalendarStrip: View {
     private var geometry: NotchGeometry { displayGeometry ?? service.geometry }
 
     var body: some View {
-        if let countdown = calendar.countdown {
+        // An event ending moves the countdown on, or clears it, before the
+        // strip has left.
+        NotchStripHold(calendar.countdown, shows: service.compactActivity == .calendar) { content($0) }
+    }
+
+    @ViewBuilder private func content(_ countdown: NotchCalendarCountdown?) -> some View {
+        if let countdown {
             let companion = service.compactCompanion
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 let title = CapsuleLayout.calendarTitle(countdown, language: l10n.language)
@@ -609,7 +622,12 @@ struct NotchCapsuleKeepAwakeStrip: View {
     @ObservedObject private var l10n = L10n.shared
 
     var body: some View {
-        if let end = awake.endDate {
+        // Ending a session clears its end before the strip has left.
+        NotchStripHold(awake.endDate, shows: awake.isActive) { content(end: $0) }
+    }
+
+    @ViewBuilder private func content(end: Date?) -> some View {
+        if let end {
             TimelineView(.periodic(from: NotchKeepAwakeSupport.tickStart(until: end, now: Date()), by: 60)) { context in
                 row(end: end, now: context.date)
             }

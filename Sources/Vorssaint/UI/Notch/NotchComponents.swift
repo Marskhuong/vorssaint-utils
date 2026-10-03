@@ -93,6 +93,32 @@ struct NotchRollingDigits: ViewModifier {
     }
 }
 
+/// Draws a strip from what its activity reported while it was on the island.
+/// An activity that ends says so before the island swaps its strip out, and
+/// the strip on its way out drew the empty reading for those frames and
+/// through the fade into what comes next.
+struct NotchStripHold<Value: Equatable, Content: View>: View {
+    private let value: Value
+    private let shows: Bool
+    private let content: (Value) -> Content
+    @State private var held: Value
+
+    /// `shows` is whether the activity is still on the island.
+    init(_ value: Value, shows: Bool, @ViewBuilder content: @escaping (Value) -> Content) {
+        self.value = value
+        self.shows = shows
+        self.content = content
+        _held = State(initialValue: value)
+    }
+
+    var body: some View {
+        content(shows ? value : held)
+            .onChange(of: value) { _, value in
+                if shows { held = value }
+            }
+    }
+}
+
 struct NotchIconButton: View {
     let symbol: String
     let title: String
