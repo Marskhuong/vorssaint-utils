@@ -1058,10 +1058,10 @@ struct NotchMascotActivityVisit: ViewModifier {
         // A lap or a homecoming ends where it rests, which an activity's
         // strip has no place for, so only what ends out of sight comes over it.
         let visit = track == nil ? nil : service.mascotVisit.flatMap { $0.kind.endsOutOfSight ? $0 : nil }
-        // Watching a countdown or dancing to music beside a camera, it covers
-        // only the wing it stands in, as the black of the closed island, and
-        // the reading or the music's bars stay in view. A capsule has no
-        // wings, so what it shows steps aside instead.
+        // Reacting or watching a countdown beside a camera, it covers only
+        // the wing it stands in, as the black of the closed island, and the
+        // other side stays in view. A capsule has no wings, so what it shows
+        // steps aside instead.
         let hidden = track?.hidden
         let ownWing = visit?.kind.takesOnlyItsWing == true && hidden != nil
         let stepsAside = visit != nil && service.mascotStepsAside && !ownWing

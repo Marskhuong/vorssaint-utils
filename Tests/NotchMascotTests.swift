@@ -312,10 +312,9 @@ enum NotchMascotTests {
                                                floats: true, bodyHeight: 20)
         suite.expect(NotchMascotVisit.Kind.cameo(.groove).takesOnlyItsWing && NotchMascotVisit.Kind.countdown(5).takesOnlyItsWing
                      && NotchMascotVisit.Kind.retreat.takesOnlyItsWing && NotchMascotVisit.Kind.linger(.perk).takesOnlyItsWing
-                     && !NotchMascotVisit.Kind.cameo(.celebrate).takesOnlyItsWing
+                     && NotchMascotVisit.Kind.cameo(.celebrate).takesOnlyItsWing
                      && !NotchMascotVisit.Kind.pass.takesOnlyItsWing,
-                     "dancing to music, watching a countdown or staying as an activity arrives it takes only its wing, "
-                        + "and other moments the whole strip")
+                     "reacting or watching a countdown it takes only its wing, and only a stroll the whole strip")
         suite.expect(NotchMascotVisit.Kind.farewell.endsOutOfSight && !NotchMascotVisit.Kind.farewell.watchesTimer
                      && NotchMascotMotion.duration(of: .farewell) < 1,
                      "a farewell is over in under a second and ends out of sight")
