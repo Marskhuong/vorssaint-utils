@@ -366,15 +366,15 @@ enum NotchMascotTests {
             }
         }
         // What a reaction covered comes back as it sets off home beside a
-        // camera, which hides it before it is halfway there, and halfway out
-        // of a capsule, which it walks out of past the end.
+        // camera, which hides it before it is halfway there, and a quarter of
+        // the way out of a capsule, which it walks out of past the end.
         for kind in [NotchMascotVisit.Kind.cameo(.love), .linger(.perk), .cameo(.groove), .linger(.groove)] {
             let duration = NotchMascotMotion.duration(of: kind)
             let camera = NotchMascotMotion.handBack(of: kind, floats: false) ?? 0
             let capsule = NotchMascotMotion.handBack(of: kind, floats: true) ?? 0
             suite.expect(abs(camera - (duration - NotchMascotMotion.cameoExit)) < 1e-9
-                         && abs(capsule - (duration - NotchMascotMotion.cameoExit / 2)) < 1e-9,
-                         "\(kind) hands back what it covered as it sets off home beside a camera, halfway in a capsule")
+                         && abs(capsule - (duration - NotchMascotMotion.cameoExit * 3 / 4)) < 1e-9,
+                         "\(kind) hands back what it covered as it sets off home beside a camera, soon after in a capsule")
             let path = NotchMascotMotion.path(for: kind, on: right)
             let before = path.keyTimes.indices.filter { path.keyTimes[$0] * path.duration <= camera - 0.01 }
             suite.expect(!before.isEmpty && abs(path.x[before.last!] - right.rest) < 0.01,

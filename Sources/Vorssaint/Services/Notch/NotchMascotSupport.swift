@@ -825,13 +825,15 @@ enum NotchMascotMotion {
 
     /// When a reaction's visit gives back what it covered, from its start.
     /// Beside a camera it is behind the camera before it is halfway home, so
-    /// the strip starts back as it sets off, or the island stood empty for a
-    /// few frames. In a capsule it walks out past the end, and halfway is
-    /// soon enough. Nil for a visit that comes out for no reaction.
+    /// the strip starts back as it sets off. In a capsule it walks out past
+    /// the end, which it passes a little before its walk is over, so what it
+    /// covered starts back a quarter of the way out and is mostly there as
+    /// it goes. Later, the island stood empty for a few frames. Nil for a
+    /// visit that comes out for no reaction.
     static func handBack(of kind: NotchMascotVisit.Kind, floats: Bool) -> TimeInterval? {
         guard let reaction = kind.reaction else { return nil }
         let arrival = kind == .linger(reaction) ? 0 : cameoArrival
-        return arrival + cameoHold(reaction) + (floats ? cameoExit / 2 : 0)
+        return arrival + cameoHold(reaction) + (floats ? cameoExit / 4 : 0)
     }
 
     /// A stroll of `kind`. Resting right of the camera, it walks the left
