@@ -53,12 +53,11 @@ struct FeatureHubSettings: View {
     }
 
     private var content: some View {
-        // The lazy stack has to be the scroll view's own content (issue
-        // #2270). Nested in a plain stack, it resized that stack each time a
-        // card came into view: scrolling stalled for up to a second, and the
-        // layout could keep redoing itself until Settings froze.
+        // Tahoe 26.6.2 can still spin inside LazyVStackLayout while scrolling
+        // this page (upstream #2311), even after the #2270 nesting fix.
+        // This personal fork favors stable eager layout over lazy rendering.
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: 20) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(hub.pageTitle).font(.title2.bold())
                     Text(tab == .features ? hub.intro : hub.permissionsIntro)
